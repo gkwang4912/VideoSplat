@@ -1,0 +1,8 @@
+numpy>=1.26
+Pillow>=10.0
+torch>=2.1
+gsplat>=1.5
+plyfile>=1.1
+opencv-python>=4.9
+matplotlib>=3.8
+imageio-ffmpeg>=0.5

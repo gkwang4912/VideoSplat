@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Node.js and frontend build output
+node_modules/
+XYZ Orbit_Viewer/frontend/dist/
+
+# Runtime inputs and generated outputs
+**/input/
+**/output/
+**/outputs/
+**/batch_report.json
+**/history.json
+**/brush.log
+**/target/
+
+# Large runtime media and model artifacts
+*.mp4
+*.mov
+*.mkv
+*.avi
+*.webm
+*.ply
+*.db
+*.bin
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+
+# README demo media is intentionally versioned
+!docs/assets/demo/*.mp4
+
+# Local editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Environment files and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key

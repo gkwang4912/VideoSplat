@@ -1,0 +1,33 @@
+{
+  "ring_elevations_deg": [60, 30, 0, -30, -60],
+  "azimuth_step_deg": 3,
+  "use_first_registered_frame_as_front": true,
+  "sphere_radius_mode": "first_camera_distance",
+  "mask_enabled": true,
+  "render": {
+    "device": "cuda",
+    "background_rgb": [0.0, 0.0, 0.0],
+    "near_plane": 0.01,
+    "far_plane": 1000.0,
+    "video_fps": 30,
+    "jpeg_quality": 94
+  },
+  "ply_splat": {
+    "splat_scale": 1.0,
+    "splat_scale_xyz": [1.0, 1.0, 1.0],
+    "opacity_multiplier": 1.0,
+    "opacity_power": 1.0,
+    "sh_degree": null,
+    "eps2d": 0.3,
+    "radius_clip": 0.0,
+    "point_size_pixels": 1.0
+  },
+  "validation_tolerances": {
+    "radius": 1e-5,
+    "look_at": 1e-6,
+    "orthonormal": 1e-6,
+    "azimuth_deg": 1e-9,
+    "loop_rotation_deg": 10.0,
+    "adjacent_rotation_deg": 10.0
+  }
+}

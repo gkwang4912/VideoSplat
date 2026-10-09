@@ -1,0 +1,377 @@
+{
+  "1": {
+    "inputs": {
+      "file": "combine.mp4",
+      "video-preview": ""
+    },
+    "class_type": "LoadVideo",
+    "_meta": {
+      "title": "Load MAIN video (frames become source latent)"
+    }
+  },
+  "2": {
+    "inputs": {
+      "video": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "GetVideoComponents",
+    "_meta": {
+      "title": "Extract MAIN frames and FPS"
+    }
+  },
+  "3": {
+    "inputs": {
+      "image": "0000.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Optional reference image (conditioning only)"
+    }
+  },
+  "4": {
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_fp16.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load 影片模型 video VAE"
+    }
+  },
+  "5": {
+    "inputs": {
+      "source_fps": [
+        "2",
+        2
+      ],
+      "start_frame": 0,
+      "max_frames": 0,
+      "chunk_length": 0,
+      "width": [
+        "47:41",
+        0
+      ],
+      "height": [
+        "47:41",
+        1
+      ],
+      "crop": "center",
+      "temporal_mode": "preserve_frames",
+      "padding_mode": "repeat_last",
+      "debug_frame_trace": false,
+      "frames": [
+        "47:46",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3VideoLatentEncode",
+    "_meta": {
+      "title": "ALL MAIN frames → tail pad-up → VAE encode"
+    }
+  },
+  "6": {
+    "inputs": {
+      "unet_name": "minimax_h3_ref2va_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load 影片模型 Ref2VA model"
+    }
+  },
+  "7": {
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "type": "minimax",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load 影片模型 CLIP"
+    }
+  },
+  "8": {
+    "inputs": {
+      "shift_video": 12,
+      "shift_audio": 3,
+      "model": [
+        "6",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3SigmaShift",
+    "_meta": {
+      "title": "影片模型 sigma shifts"
+    }
+  },
+  "9": {
+    "inputs": {
+      "prompt": "Refine and regenerate the video using the provided reference with the following requirements:\n\n- Use <Image 1> strictly as the character appearance reference. Match the character identity, facial features, hairstyle, body appearance, clothing, colors, textures, and overall visual design as closely as possible to <Image 1>.\n\n- Maintain strong character consistency throughout the entire video.\n\n- The final result should depict the character from <Image 1>, while keeping the character anatomically stable and visually consistent across all frames, including during large viewpoint changes and previously unseen angles.\n\n- Everything in the output must remain completely still and motionless at all times. Treat the entire subject as a fully static object. Even if the subject is a human character, there must be no body movement, no facial movement, no eye movement, no breathing motion, no hair movement, and no secondary motion of any kind.\n\n- The only allowed change across the video is the viewpoint or camera perspective. The subject itself must remain perfectly frozen in the exact same state in every frame, as if it were a rigid, unmoving statue or a completely stationary object.",
+      "negative_prompt": "",
+      "enable_reference": true,
+      "reference_strength": 1,
+      "reference_size": "match_768",
+      "reference_video_fps": 0,
+      "clip": [
+        "7",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ],
+      "reference_image": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3OptionalReferenceConditioning",
+    "_meta": {
+      "title": "Prompt + optional Picture 1 conditioning"
+    }
+  },
+  "10": {
+    "inputs": {
+      "seed": 26083001,
+      "noise_strength": 0,
+      "steps": 10,
+      "scheduler": "simple",
+      "noise_type": "gaussian",
+      "noise_mode": "fixed_precorrupt_strength",
+      "precorrupt_strength": 0.7,
+      "model": [
+        "8",
+        0
+      ],
+      "av_latent": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3LatentNoisePlan",
+    "_meta": {
+      "title": "Encoded MAIN sequence → seeded noise plan"
+    }
+  },
+  "11": {
+    "inputs": {
+      "cfg": 1,
+      "model": [
+        "8",
+        0
+      ],
+      "positive": [
+        "9",
+        0
+      ],
+      "negative": [
+        "9",
+        1
+      ]
+    },
+    "class_type": "CFGGuider",
+    "_meta": {
+      "title": "Guidance (CFG 1.0 is native-safe default)"
+    }
+  },
+  "12": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "Denoise sampler"
+    }
+  },
+  "13": {
+    "inputs": {
+      "noise": [
+        "10",
+        0
+      ],
+      "guider": [
+        "11",
+        0
+      ],
+      "sampler": [
+        "21",
+        0
+      ],
+      "sigmas": [
+        "10",
+        1
+      ],
+      "latent_image": [
+        "10",
+        2
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "影片模型 denoise encoded MAIN sequence"
+    }
+  },
+  "14": {
+    "inputs": {
+      "frame_selection": "middle",
+      "frame_index": 0,
+      "av_latent": [
+        "13",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3LatentDecode",
+    "_meta": {
+      "title": "Decode denoised video frames"
+    }
+  },
+  "15": {
+    "inputs": {
+      "fps": [
+        "5",
+        4
+      ],
+      "bit_depth": 8,
+      "color_space": "sRGB",
+      "images": [
+        "14",
+        1
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Create refined 24fps video"
+    }
+  },
+  "16": {
+    "inputs": {
+      "filename_prefix": "VideoModel/video_latent_refine",
+      "format": "mp4",
+      "format.codec": "h264",
+      "format.codec.encoding": "auto",
+      "codec": "auto",
+      "video": [
+        "15",
+        0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save refined MP4"
+    }
+  },
+  "21": {
+    "inputs": {
+      "sampler": [
+        "12",
+        0
+      ],
+      "sampling_plan": [
+        "10",
+        5
+      ]
+    },
+    "class_type": "MiniMaxH3FixedPrecorruptSamplerAdapter",
+    "_meta": {
+      "title": "影片模型 Fixed Precorrupt Sampler Adapter"
+    }
+  },
+  "47:42": {
+    "inputs": {
+      "value": 1
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "浮點數"
+    }
+  },
+  "47:43": {
+    "inputs": {
+      "image": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "取得圖片尺寸"
+    }
+  },
+  "47:44": {
+    "inputs": {
+      "expression": "ceil((a * b) / 32) * 32",
+      "values.a": [
+        "47:43",
+        0
+      ],
+      "values.b": [
+        "47:42",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "數學運算式"
+    }
+  },
+  "47:41": {
+    "inputs": {
+      "image": [
+        "47:46",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "取得圖片尺寸"
+    }
+  },
+  "47:45": {
+    "inputs": {
+      "expression": "ceil((a * b) / 32) * 32",
+      "values.a": [
+        "47:43",
+        1
+      ],
+      "values.b": [
+        "47:42",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "數學運算式"
+    }
+  },
+  "47:46": {
+    "inputs": {
+      "target_width": [
+        "47:44",
+        1
+      ],
+      "target_height": [
+        "47:45",
+        1
+      ],
+      "padding_color": "white",
+      "interpolation": "area",
+      "image": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "ResizeAndPadImage",
+    "_meta": {
+      "title": "調整尺寸並填充圖像"
+    }
+  }
+}

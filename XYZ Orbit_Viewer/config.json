@@ -1,0 +1,33 @@
+{
+  "path_playback": {
+    "smart_reverse": true
+  },
+  "image_mode": {
+    "drag_degrees_per_pixel": 0.24,
+    "keyboard_step_degrees": 1.0
+  },
+  "ply_mode": {
+    "camera_point_size_px": 3.0,
+    "camera_point_opacity": 0.8,
+    "camera_orbit_scale": 1.0,
+    "path_opacity": 0.42,
+    "model_scale": 1.0,
+    "model_scale_min": 0.25,
+    "model_scale_max": 4.0,
+    "model_scale_step": 0.05,
+    "axis_length": 1.8726598549,
+    "axis_offset": [0.0, 0.0, 0.0],
+    "axis_opacity": 0.9,
+    "selected_camera_marker_size_px": 26.0,
+    "selected_ray_opacity": 0.48,
+    "overview_distance_multiplier": 2.55,
+    "overview_fov_degrees": 54.0,
+    "focus_distance_multiplier": 1.18,
+    "focus_fov_degrees": 30.0,
+    "min_zoom_distance_multiplier": 0.48,
+    "max_zoom_distance_multiplier": 2.6,
+    "camera_point_color": "#737d89",
+    "path_color": "#59626e",
+    "selected_camera_color": "#ffc857"
+  }
+}

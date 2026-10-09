@@ -1,0 +1,7 @@
+numpy>=1.26
+Pillow>=10.0
+plyfile>=1.0
+torch>=2.1
+gsplat>=1.4
+imageio-ffmpeg>=0.5
+scipy>=1.10

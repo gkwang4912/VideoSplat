@@ -1,0 +1,23 @@
+{
+  "comfyui_url": "http://127.0.0.1:8188",
+  "video_dir": "input/All",
+  "consolidated_video_dir": "input",
+  "paths_dir": "input/paths",
+  "reference_image": "input/test_avater.jpg",
+  "workflow": "workflows/video_model_latent_refine_api.json",
+  "output_dir": "output",
+  "accepted_output_frame_counts": [90, 91],
+  "brush_copy_source_masks": true,
+  "consolidated_brush_output": "brush_videos",
+  "generation_timeout_seconds": 21600,
+  "poll_seconds": 3,
+  "comfy_output_prefix": "XYZ_Orbit_VideoModel",
+  "base_seed": 26083001,
+  "seed_input": "seed",
+  "workflow_nodes": {
+    "video": "1",
+    "reference_image": "3",
+    "seed": "10",
+    "save_video": "16"
+  }
+}

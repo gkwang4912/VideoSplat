@@ -1,0 +1,1862 @@
+{
+  "id": "ea8d8545-559b-4a10-97c4-45de3f55fbf8",
+  "revision": 0,
+  "last_node_id": 47,
+  "last_link_id": 105,
+  "nodes": [
+    {
+      "id": 4,
+      "type": "VAELoader",
+      "pos": [
+        0,
+        650
+      ],
+      "size": [
+        360,
+        220
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            3,
+            7,
+            20
+          ]
+        }
+      ],
+      "title": "Load 影片模型 video VAE",
+      "properties": {
+        "Node name for S&R": "VAELoader",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "minimax_h3_video_vae_fp16.safetensors"
+      ],
+      "widgets_values_named": {
+        "vae_name": "minimax_h3_video_vae_fp16.safetensors"
+      }
+    },
+    {
+      "id": 5,
+      "type": "MiniMaxH3VideoLatentEncode",
+      "pos": [
+        860,
+        0
+      ],
+      "size": [
+        420,
+        390
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "frames",
+          "type": "IMAGE",
+          "link": 104
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 3
+        },
+        {
+          "name": "source_fps",
+          "type": "FLOAT",
+          "widget": {
+            "name": "source_fps"
+          },
+          "link": 4
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "widget": {
+            "name": "width"
+          },
+          "link": 102
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "widget": {
+            "name": "height"
+          },
+          "link": 103
+        }
+      ],
+      "outputs": [
+        {
+          "name": "av_latent",
+          "type": "LATENT",
+          "links": [
+            27
+          ]
+        },
+        {
+          "name": "original_video_latent",
+          "type": "LATENT",
+          "links": []
+        },
+        {
+          "name": "selected_frames",
+          "type": "IMAGE",
+          "links": []
+        },
+        {
+          "name": "frame_count",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "name": "output_fps",
+          "type": "FLOAT",
+          "links": [
+            22
+          ]
+        },
+        {
+          "name": "report",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "title": "ALL MAIN frames → tail pad-up → VAE encode",
+      "properties": {
+        "Node name for S&R": "MiniMaxH3VideoLatentEncode"
+      },
+      "widgets_values": [
+        24,
+        0,
+        0,
+        0,
+        736,
+        416,
+        "center",
+        "preserve_frames",
+        "repeat_last",
+        false
+      ],
+      "widgets_values_named": {
+        "source_fps": 24,
+        "start_frame": 0,
+        "max_frames": 0,
+        "chunk_length": 0,
+        "width": 736,
+        "height": 416,
+        "crop": "center",
+        "temporal_mode": "preserve_frames",
+        "padding_mode": "repeat_last",
+        "debug_frame_trace": false
+      }
+    },
+    {
+      "id": 7,
+      "type": "CLIPLoader",
+      "pos": [
+        0,
+        910
+      ],
+      "size": [
+        360,
+        220
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            6
+          ]
+        }
+      ],
+      "title": "Load 影片模型 CLIP",
+      "properties": {
+        "Node name for S&R": "CLIPLoader",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+        "minimax",
+        "default"
+      ],
+      "widgets_values_named": {
+        "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+        "type": "minimax",
+        "device": "default"
+      }
+    },
+    {
+      "id": 13,
+      "type": "SamplerCustomAdvanced",
+      "pos": [
+        1800,
+        0
+      ],
+      "size": [
+        420,
+        260
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "noise",
+          "type": "NOISE",
+          "link": 14
+        },
+        {
+          "name": "guider",
+          "type": "GUIDER",
+          "link": 15
+        },
+        {
+          "name": "sampler",
+          "type": "SAMPLER",
+          "link": 36
+        },
+        {
+          "name": "sigmas",
+          "type": "SIGMAS",
+          "link": 17
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 18
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output",
+          "type": "LATENT",
+          "links": [
+            19
+          ]
+        },
+        {
+          "name": "denoised_output",
+          "type": "LATENT",
+          "links": []
+        }
+      ],
+      "title": "影片模型 denoise encoded MAIN sequence",
+      "properties": {
+        "Node name for S&R": "SamplerCustomAdvanced",
+        "cnr_id": "comfy-core"
+      }
+    },
+    {
+      "id": 14,
+      "type": "MiniMaxH3LatentDecode",
+      "pos": [
+        2260,
+        0
+      ],
+      "size": [
+        400,
+        240
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "av_latent",
+          "type": "LATENT",
+          "link": 19
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 20
+        }
+      ],
+      "outputs": [
+        {
+          "name": "selected_image",
+          "type": "IMAGE",
+          "links": []
+        },
+        {
+          "name": "decoded_frames",
+          "type": "IMAGE",
+          "links": [
+            21
+          ]
+        },
+        {
+          "name": "selected_index",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "name": "report",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "title": "Decode denoised video frames",
+      "properties": {
+        "Node name for S&R": "MiniMaxH3LatentDecode"
+      },
+      "widgets_values": [
+        "middle",
+        0
+      ],
+      "widgets_values_named": {
+        "frame_selection": "middle",
+        "frame_index": 0
+      }
+    },
+    {
+      "id": 15,
+      "type": "CreateVideo",
+      "pos": [
+        2720,
+        0
+      ],
+      "size": [
+        360,
+        220
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 21
+        },
+        {
+          "name": "audio",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": null
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "widget": {
+            "name": "fps"
+          },
+          "link": 22
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            23
+          ]
+        }
+      ],
+      "title": "Create refined 24fps video",
+      "properties": {
+        "Node name for S&R": "CreateVideo",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        24,
+        8,
+        "sRGB"
+      ],
+      "widgets_values_named": {
+        "fps": 24,
+        "bit_depth": 8,
+        "color_space": "sRGB"
+      }
+    },
+    {
+      "id": 8,
+      "type": "MiniMaxH3SigmaShift",
+      "pos": [
+        863.560436269619,
+        920.5445719276277
+      ],
+      "size": [
+        360,
+        220
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            9,
+            11
+          ]
+        }
+      ],
+      "title": "影片模型 sigma shifts",
+      "properties": {
+        "Node name for S&R": "MiniMaxH3SigmaShift",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        12,
+        3
+      ],
+      "widgets_values_named": {
+        "shift_video": 12,
+        "shift_audio": 3
+      }
+    },
+    {
+      "id": 12,
+      "type": "KSamplerSelect",
+      "pos": [
+        1803.2368195123204,
+        343.7480244790552
+      ],
+      "size": [
+        360,
+        220
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "SAMPLER",
+          "type": "SAMPLER",
+          "links": [
+            35
+          ]
+        }
+      ],
+      "title": "Denoise sampler",
+      "properties": {
+        "Node name for S&R": "KSamplerSelect",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "euler"
+      ],
+      "widgets_values_named": {
+        "sampler_name": "euler"
+      }
+    },
+    {
+      "id": 21,
+      "type": "MiniMaxH3FixedPrecorruptSamplerAdapter",
+      "pos": [
+        1803.0453911472798,
+        617.5490138350086
+      ],
+      "size": [
+        347.9751953125,
+        46
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "sampler",
+          "type": "SAMPLER",
+          "link": 35
+        },
+        {
+          "name": "sampling_plan",
+          "type": "MINIMAX_H3_SAMPLING_PLAN",
+          "link": 34
+        }
+      ],
+      "outputs": [
+        {
+          "name": "sampler",
+          "type": "SAMPLER",
+          "links": [
+            36
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3FixedPrecorruptSamplerAdapter"
+      }
+    },
+    {
+      "id": 16,
+      "type": "SaveVideo",
+      "pos": [
+        3160,
+        0
+      ],
+      "size": [
+        360,
+        130
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 23
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": []
+        }
+      ],
+      "title": "Save refined MP4",
+      "properties": {
+        "Node name for S&R": "SaveVideo",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "MiniMaxH3/video_latent_refine",
+        "mp4",
+        "h264",
+        "auto",
+        "auto"
+      ],
+      "widgets_values_named": {
+        "filename_prefix": "VideoModel/video_latent_refine",
+        "format": "mp4",
+        "format.codec": "h264",
+        "format.codec.encoding": "auto",
+        "codec": "auto"
+      }
+    },
+    {
+      "id": 9,
+      "type": "MiniMaxH3OptionalReferenceConditioning",
+      "pos": [
+        861.5789480560946,
+        439.4737218195172
+      ],
+      "size": [
+        440,
+        438
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 6
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 7
+        },
+        {
+          "name": "reference_image",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 8
+        },
+        {
+          "name": "reference_image_2",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "reference_image_3",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "reference_image_4",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "reference_image_5",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "reference_image_6",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "reference_image_7",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "reference_image_8",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "reference_video_frames",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            12
+          ]
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "links": [
+            13
+          ]
+        },
+        {
+          "name": "report",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "title": "Prompt + optional Picture 1 conditioning",
+      "properties": {
+        "Node name for S&R": "MiniMaxH3OptionalReferenceConditioning"
+      },
+      "widgets_values": [
+        "Refine and regenerate the video using the provided reference with the following requirements:\n\n- Use <Image 1> strictly as the character appearance reference. Match the character identity, facial features, hairstyle, body appearance, clothing, colors, textures, and overall visual design as closely as possible to <Image 1>.\n\n- Maintain strong character consistency throughout the entire video.\n\n- The final result should depict the character from <Image 1>, while keeping the character anatomically stable and visually consistent across all frames, including during large viewpoint changes and previously unseen angles.\n\n- Everything in the output must remain completely still and motionless at all times. Treat the entire subject as a fully static object. Even if the subject is a human character, there must be no body movement, no facial movement, no eye movement, no breathing motion, no hair movement, and no secondary motion of any kind.\n\n- The only allowed change across the video is the viewpoint or camera perspective. The subject itself must remain perfectly frozen in the exact same state in every frame, as if it were a rigid, unmoving statue or a completely stationary object.",
+        "",
+        true,
+        1,
+        "match_768",
+        0
+      ],
+      "widgets_values_named": {
+        "prompt": "Refine and regenerate the video using the provided reference with the following requirements:\n\n- Use <Image 1> strictly as the character appearance reference. Match the character identity, facial features, hairstyle, body appearance, clothing, colors, textures, and overall visual design as closely as possible to <Image 1>.\n\n- Maintain strong character consistency throughout the entire video.\n\n- The final result should depict the character from <Image 1>, while keeping the character anatomically stable and visually consistent across all frames, including during large viewpoint changes and previously unseen angles.\n\n- Everything in the output must remain completely still and motionless at all times. Treat the entire subject as a fully static object. Even if the subject is a human character, there must be no body movement, no facial movement, no eye movement, no breathing motion, no hair movement, and no secondary motion of any kind.\n\n- The only allowed change across the video is the viewpoint or camera perspective. The subject itself must remain perfectly frozen in the exact same state in every frame, as if it were a rigid, unmoving statue or a completely stationary object.",
+        "negative_prompt": "",
+        "enable_reference": true,
+        "reference_strength": 1,
+        "reference_size": "match_768",
+        "reference_video_fps": 0
+      }
+    },
+    {
+      "id": 6,
+      "type": "UNETLoader",
+      "pos": [
+        1.1770468289207587,
+        373.40245425114085
+      ],
+      "size": [
+        360,
+        220
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            5
+          ]
+        }
+      ],
+      "title": "Load 影片模型 Ref2VA model",
+      "properties": {
+        "Node name for S&R": "UNETLoader",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "minimax_h3_ref2va_int8_convrot.safetensors",
+        "default"
+      ],
+      "widgets_values_named": {
+        "unet_name": "minimax_h3_ref2va_int8_convrot.safetensors",
+        "weight_dtype": "default"
+      }
+    },
+    {
+      "id": 3,
+      "type": "LoadImage",
+      "pos": [
+        2.3539858992743863,
+        1.6277344675094323
+      ],
+      "size": [
+        360,
+        314
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            8
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "title": "Optional reference image (conditioning only)",
+      "properties": {
+        "Node name for S&R": "LoadImage",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "0000.png",
+        "image"
+      ],
+      "widgets_values_named": {
+        "image": "0000.png",
+        "upload": "image"
+      }
+    },
+    {
+      "id": 10,
+      "type": "MiniMaxH3LatentNoisePlan",
+      "pos": [
+        1340,
+        0
+      ],
+      "size": [
+        420,
+        326
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 9
+        },
+        {
+          "name": "av_latent",
+          "type": "LATENT",
+          "link": 27
+        }
+      ],
+      "outputs": [
+        {
+          "name": "noise",
+          "type": "NOISE",
+          "links": [
+            14
+          ]
+        },
+        {
+          "name": "sigmas",
+          "type": "SIGMAS",
+          "links": [
+            17
+          ]
+        },
+        {
+          "name": "original_latent",
+          "type": "LATENT",
+          "links": [
+            18
+          ]
+        },
+        {
+          "name": "noisy_latent",
+          "type": "LATENT",
+          "links": []
+        },
+        {
+          "name": "report",
+          "type": "STRING",
+          "links": []
+        },
+        {
+          "name": "sampling_plan",
+          "type": "MINIMAX_H3_SAMPLING_PLAN",
+          "links": [
+            34
+          ]
+        }
+      ],
+      "title": "Encoded MAIN sequence → seeded noise plan",
+      "properties": {
+        "Node name for S&R": "MiniMaxH3LatentNoisePlan"
+      },
+      "widgets_values": [
+        26083001,
+        "fixed",
+        0,
+        10,
+        "simple",
+        "gaussian",
+        "fixed_precorrupt_strength",
+        0.7
+      ],
+      "widgets_values_named": {
+        "seed": 26083001,
+        "control_after_generate": "fixed",
+        "noise_strength": 0,
+        "steps": 10,
+        "scheduler": "simple",
+        "noise_type": "gaussian",
+        "noise_mode": "fixed_precorrupt_strength",
+        "precorrupt_strength": 0.7
+      }
+    },
+    {
+      "id": 1,
+      "type": "LoadVideo",
+      "pos": [
+        -391.94463282966234,
+        1.1770198892789825
+      ],
+      "size": [
+        361.27109375,
+        763.6993607954545
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "title": "Load MAIN video (frames become source latent)",
+      "properties": {
+        "Node name for S&R": "LoadVideo",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "combine.mp4",
+        "image"
+      ],
+      "widgets_values_named": {
+        "file": "combine.mp4",
+        "upload": "image"
+      }
+    },
+    {
+      "id": 2,
+      "type": "GetVideoComponents",
+      "pos": [
+        430,
+        0
+      ],
+      "size": [
+        360,
+        220
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            101
+          ]
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "links": []
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "links": [
+            4
+          ]
+        },
+        {
+          "name": "bit_depth",
+          "type": "COMBO",
+          "links": null
+        },
+        {
+          "name": "color_space",
+          "type": "COMBO",
+          "links": null
+        }
+      ],
+      "title": "Extract MAIN frames and FPS",
+      "properties": {
+        "Node name for S&R": "GetVideoComponents",
+        "cnr_id": "comfy-core"
+      }
+    },
+    {
+      "id": 11,
+      "type": "CFGGuider",
+      "pos": [
+        1340,
+        380
+      ],
+      "size": [
+        360,
+        220
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 11
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 12
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 13
+        }
+      ],
+      "outputs": [
+        {
+          "name": "GUIDER",
+          "type": "GUIDER",
+          "links": [
+            15
+          ]
+        }
+      ],
+      "title": "Guidance (CFG 1.0 is native-safe default)",
+      "properties": {
+        "Node name for S&R": "CFGGuider",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        1
+      ],
+      "widgets_values_named": {
+        "cfg": 1
+      }
+    },
+    {
+      "id": 47,
+      "type": "8260574e-eba0-4457-b272-235e0167f10c",
+      "pos": [
+        578.5822466603275,
+        262.32775639734723
+      ],
+      "size": [
+        210,
+        98
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 101
+        }
+      ],
+      "outputs": [
+        {
+          "name": "width",
+          "type": "INT",
+          "links": [
+            102
+          ]
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": [
+            103
+          ]
+        },
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            104
+          ]
+        }
+      ],
+      "properties": {
+        "previewExposures": []
+      },
+      "widgets_values": [
+        1
+      ],
+      "widgets_values_named": {
+        "value": 1
+      }
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "VIDEO"
+    ],
+    [
+      3,
+      4,
+      0,
+      5,
+      1,
+      "VAE"
+    ],
+    [
+      4,
+      2,
+      2,
+      5,
+      2,
+      "FLOAT"
+    ],
+    [
+      5,
+      6,
+      0,
+      8,
+      0,
+      "MODEL"
+    ],
+    [
+      6,
+      7,
+      0,
+      9,
+      0,
+      "CLIP"
+    ],
+    [
+      7,
+      4,
+      0,
+      9,
+      1,
+      "VAE"
+    ],
+    [
+      8,
+      3,
+      0,
+      9,
+      2,
+      "IMAGE"
+    ],
+    [
+      9,
+      8,
+      0,
+      10,
+      0,
+      "MODEL"
+    ],
+    [
+      11,
+      8,
+      0,
+      11,
+      0,
+      "MODEL"
+    ],
+    [
+      12,
+      9,
+      0,
+      11,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      13,
+      9,
+      1,
+      11,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      14,
+      10,
+      0,
+      13,
+      0,
+      "NOISE"
+    ],
+    [
+      15,
+      11,
+      0,
+      13,
+      1,
+      "GUIDER"
+    ],
+    [
+      17,
+      10,
+      1,
+      13,
+      3,
+      "SIGMAS"
+    ],
+    [
+      18,
+      10,
+      2,
+      13,
+      4,
+      "LATENT"
+    ],
+    [
+      19,
+      13,
+      0,
+      14,
+      0,
+      "LATENT"
+    ],
+    [
+      20,
+      4,
+      0,
+      14,
+      1,
+      "VAE"
+    ],
+    [
+      21,
+      14,
+      1,
+      15,
+      0,
+      "IMAGE"
+    ],
+    [
+      22,
+      5,
+      4,
+      15,
+      2,
+      "FLOAT"
+    ],
+    [
+      23,
+      15,
+      0,
+      16,
+      0,
+      "VIDEO"
+    ],
+    [
+      27,
+      5,
+      0,
+      10,
+      1,
+      "LATENT"
+    ],
+    [
+      34,
+      10,
+      5,
+      21,
+      1,
+      "MINIMAX_H3_SAMPLING_PLAN"
+    ],
+    [
+      35,
+      12,
+      0,
+      21,
+      0,
+      "SAMPLER"
+    ],
+    [
+      36,
+      21,
+      0,
+      13,
+      2,
+      "SAMPLER"
+    ],
+    [
+      101,
+      2,
+      0,
+      47,
+      0,
+      "IMAGE"
+    ],
+    [
+      102,
+      47,
+      0,
+      5,
+      3,
+      "INT"
+    ],
+    [
+      103,
+      47,
+      1,
+      5,
+      4,
+      "INT"
+    ],
+    [
+      104,
+      47,
+      2,
+      5,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "definitions": {
+    "subgraphs": [
+      {
+        "id": "8260574e-eba0-4457-b272-235e0167f10c",
+        "version": 1,
+        "state": {
+          "lastGroupId": 0,
+          "lastNodeId": 47,
+          "lastLinkId": 105,
+          "lastRerouteId": 0
+        },
+        "revision": 0,
+        "config": {},
+        "name": "Reduce Quality",
+        "inputNode": {
+          "id": -10,
+          "bounding": [
+            -769.6025706205172,
+            1587.9496462688692,
+            128,
+            68
+          ]
+        },
+        "outputNode": {
+          "id": -20,
+          "bounding": [
+            727.0815307501845,
+            1567.9496462688692,
+            128,
+            108
+          ]
+        },
+        "inputs": [
+          {
+            "id": "79d45790-3123-4947-be5d-ec2ce9c50d7d",
+            "name": "image",
+            "type": "IMAGE",
+            "linkIds": [
+              97,
+              98
+            ],
+            "localized_name": "圖片",
+            "pos": [
+              51,
+              24
+            ]
+          },
+          {
+            "id": "4d891f79-c85c-4a20-b470-bd8319ca33f0",
+            "name": "value",
+            "type": "FLOAT",
+            "linkIds": [
+              105
+            ],
+            "pos": [
+              0,
+              0
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "id": "97bd0c0d-7345-4c88-998c-0cf10f00e5fb",
+            "name": "width",
+            "type": "INT",
+            "linkIds": [
+              89
+            ],
+            "localized_name": "寬度",
+            "pos": [
+              24,
+              24
+            ]
+          },
+          {
+            "id": "3c811519-1db4-4528-b742-0442ce8c0167",
+            "name": "height",
+            "type": "INT",
+            "linkIds": [
+              90
+            ],
+            "localized_name": "高度",
+            "pos": [
+              24,
+              44
+            ]
+          },
+          {
+            "id": "f0a3ca57-985d-4214-8a13-683a52cfe9d8",
+            "name": "IMAGE",
+            "type": "IMAGE",
+            "linkIds": [
+              99
+            ],
+            "localized_name": "影像",
+            "pos": [
+              24,
+              64
+            ]
+          }
+        ],
+        "widgets": [],
+        "nodes": [
+          {
+            "id": 42,
+            "type": "PrimitiveFloat",
+            "pos": [
+              -581.6025706205172,
+              1444.0587991309358
+            ],
+            "size": [
+              270,
+              58
+            ],
+            "flags": {},
+            "order": 1,
+            "mode": 0,
+            "inputs": [
+              {
+                "localized_name": "數值",
+                "name": "value",
+                "type": "FLOAT",
+                "widget": {
+                  "name": "value"
+                },
+                "link": 105
+              }
+            ],
+            "outputs": [
+              {
+                "localized_name": "浮點數",
+                "name": "FLOAT",
+                "type": "FLOAT",
+                "links": [
+                  92,
+                  94
+                ]
+              }
+            ],
+            "properties": {
+              "Node name for S&R": "PrimitiveFloat"
+            },
+            "widgets_values": [
+              0.5
+            ],
+            "widgets_values_named": {
+              "value": 0.5
+            }
+          },
+          {
+            "id": 43,
+            "type": "GetImageSize",
+            "pos": [
+              -454.16565913090653,
+              1548.7962686377437
+            ],
+            "size": [
+              140,
+              124
+            ],
+            "flags": {},
+            "order": 2,
+            "mode": 0,
+            "inputs": [
+              {
+                "localized_name": "圖片",
+                "name": "image",
+                "type": "IMAGE",
+                "link": 97
+              }
+            ],
+            "outputs": [
+              {
+                "localized_name": "寬度",
+                "name": "width",
+                "type": "INT",
+                "links": [
+                  91
+                ]
+              },
+              {
+                "localized_name": "高度",
+                "name": "height",
+                "type": "INT",
+                "links": [
+                  93
+                ]
+              },
+              {
+                "localized_name": "批次大小",
+                "name": "batch_size",
+                "type": "INT",
+                "links": []
+              }
+            ],
+            "properties": {
+              "Node name for S&R": "GetImageSize"
+            }
+          },
+          {
+            "id": 44,
+            "type": "ComfyMathExpression",
+            "pos": [
+              -256.9075901800606,
+              1441.5533437732279
+            ],
+            "size": [
+              400,
+              200
+            ],
+            "flags": {},
+            "order": 3,
+            "mode": 0,
+            "inputs": [
+              {
+                "label": "a",
+                "localized_name": "values.a",
+                "name": "values.a",
+                "type": "FLOAT,INT,BOOLEAN",
+                "link": 91
+              },
+              {
+                "label": "b",
+                "localized_name": "values.b",
+                "name": "values.b",
+                "shape": 7,
+                "type": "FLOAT,INT,BOOLEAN",
+                "link": 92
+              },
+              {
+                "label": "c",
+                "localized_name": "values.c",
+                "name": "values.c",
+                "shape": 7,
+                "type": "FLOAT,INT,BOOLEAN",
+                "link": null
+              }
+            ],
+            "outputs": [
+              {
+                "localized_name": "浮點數",
+                "name": "FLOAT",
+                "type": "FLOAT",
+                "links": []
+              },
+              {
+                "localized_name": "整數",
+                "name": "INT",
+                "type": "INT",
+                "links": [
+                  95
+                ]
+              },
+              {
+                "localized_name": "BOOL",
+                "name": "BOOL",
+                "type": "BOOLEAN",
+                "links": []
+              }
+            ],
+            "properties": {
+              "Node name for S&R": "ComfyMathExpression"
+            },
+            "widgets_values": [
+              "ceil((a * b) / 32) * 32"
+            ],
+            "widgets_values_named": {
+              "expression": "ceil((a * b) / 32) * 32"
+            }
+          },
+          {
+            "id": 41,
+            "type": "GetImageSize",
+            "pos": [
+              527.0815307501845,
+              1443.258799758335
+            ],
+            "size": [
+              140,
+              66
+            ],
+            "flags": {},
+            "order": 0,
+            "mode": 0,
+            "inputs": [
+              {
+                "localized_name": "圖片",
+                "name": "image",
+                "type": "IMAGE",
+                "link": 100
+              }
+            ],
+            "outputs": [
+              {
+                "localized_name": "寬度",
+                "name": "width",
+                "type": "INT",
+                "links": [
+                  89
+                ]
+              },
+              {
+                "localized_name": "高度",
+                "name": "height",
+                "type": "INT",
+                "links": [
+                  90
+                ]
+              },
+              {
+                "localized_name": "批次大小",
+                "name": "batch_size",
+                "type": "INT",
+                "links": null
+              }
+            ],
+            "properties": {
+              "Node name for S&R": "GetImageSize"
+            }
+          },
+          {
+            "id": 45,
+            "type": "ComfyMathExpression",
+            "pos": [
+              -255.581211825894,
+              1684.3459487645105
+            ],
+            "size": [
+              400,
+              148
+            ],
+            "flags": {},
+            "order": 4,
+            "mode": 0,
+            "inputs": [
+              {
+                "label": "a",
+                "localized_name": "values.a",
+                "name": "values.a",
+                "type": "FLOAT,INT,BOOLEAN",
+                "link": 93
+              },
+              {
+                "label": "b",
+                "localized_name": "values.b",
+                "name": "values.b",
+                "shape": 7,
+                "type": "FLOAT,INT,BOOLEAN",
+                "link": 94
+              },
+              {
+                "label": "c",
+                "localized_name": "values.c",
+                "name": "values.c",
+                "shape": 7,
+                "type": "FLOAT,INT,BOOLEAN",
+                "link": null
+              }
+            ],
+            "outputs": [
+              {
+                "localized_name": "浮點數",
+                "name": "FLOAT",
+                "type": "FLOAT",
+                "links": []
+              },
+              {
+                "localized_name": "整數",
+                "name": "INT",
+                "type": "INT",
+                "links": [
+                  96
+                ]
+              },
+              {
+                "localized_name": "BOOL",
+                "name": "BOOL",
+                "type": "BOOLEAN",
+                "links": []
+              }
+            ],
+            "properties": {
+              "Node name for S&R": "ComfyMathExpression"
+            },
+            "widgets_values": [
+              "ceil((a * b) / 32) * 32"
+            ],
+            "widgets_values_named": {
+              "expression": "ceil((a * b) / 32) * 32"
+            }
+          },
+          {
+            "id": 46,
+            "type": "ResizeAndPadImage",
+            "pos": [
+              190.18477358073548,
+              1442.2006485036013
+            ],
+            "size": [
+              270,
+              130
+            ],
+            "flags": {},
+            "order": 5,
+            "mode": 0,
+            "inputs": [
+              {
+                "localized_name": "圖像",
+                "name": "image",
+                "type": "IMAGE",
+                "link": 98
+              },
+              {
+                "localized_name": "目標寬度",
+                "name": "target_width",
+                "type": "INT",
+                "widget": {
+                  "name": "target_width"
+                },
+                "link": 95
+              },
+              {
+                "localized_name": "目標高度",
+                "name": "target_height",
+                "type": "INT",
+                "widget": {
+                  "name": "target_height"
+                },
+                "link": 96
+              }
+            ],
+            "outputs": [
+              {
+                "localized_name": "影像",
+                "name": "IMAGE",
+                "type": "IMAGE",
+                "links": [
+                  99,
+                  100
+                ]
+              }
+            ],
+            "properties": {
+              "Node name for S&R": "ResizeAndPadImage"
+            },
+            "widgets_values": [
+              512,
+              512,
+              "white",
+              "area"
+            ],
+            "widgets_values_named": {
+              "target_width": 512,
+              "target_height": 512,
+              "padding_color": "white",
+              "interpolation": "area"
+            }
+          }
+        ],
+        "groups": [],
+        "links": [
+          {
+            "id": 91,
+            "origin_id": 43,
+            "origin_slot": 0,
+            "target_id": 44,
+            "target_slot": 0,
+            "type": "INT"
+          },
+          {
+            "id": 92,
+            "origin_id": 42,
+            "origin_slot": 0,
+            "target_id": 44,
+            "target_slot": 1,
+            "type": "FLOAT"
+          },
+          {
+            "id": 100,
+            "origin_id": 46,
+            "origin_slot": 0,
+            "target_id": 41,
+            "target_slot": 0,
+            "type": "IMAGE"
+          },
+          {
+            "id": 93,
+            "origin_id": 43,
+            "origin_slot": 1,
+            "target_id": 45,
+            "target_slot": 0,
+            "type": "INT"
+          },
+          {
+            "id": 94,
+            "origin_id": 42,
+            "origin_slot": 0,
+            "target_id": 45,
+            "target_slot": 1,
+            "type": "FLOAT"
+          },
+          {
+            "id": 95,
+            "origin_id": 44,
+            "origin_slot": 1,
+            "target_id": 46,
+            "target_slot": 1,
+            "type": "INT"
+          },
+          {
+            "id": 96,
+            "origin_id": 45,
+            "origin_slot": 1,
+            "target_id": 46,
+            "target_slot": 2,
+            "type": "INT"
+          },
+          {
+            "id": 97,
+            "origin_id": -10,
+            "origin_slot": 0,
+            "target_id": 43,
+            "target_slot": 0,
+            "type": "IMAGE"
+          },
+          {
+            "id": 98,
+            "origin_id": -10,
+            "origin_slot": 0,
+            "target_id": 46,
+            "target_slot": 0,
+            "type": "IMAGE"
+          },
+          {
+            "id": 89,
+            "origin_id": 41,
+            "origin_slot": 0,
+            "target_id": -20,
+            "target_slot": 0,
+            "type": "INT"
+          },
+          {
+            "id": 90,
+            "origin_id": 41,
+            "origin_slot": 1,
+            "target_id": -20,
+            "target_slot": 1,
+            "type": "INT"
+          },
+          {
+            "id": 99,
+            "origin_id": 46,
+            "origin_slot": 0,
+            "target_id": -20,
+            "target_slot": 2,
+            "type": "IMAGE"
+          },
+          {
+            "id": 105,
+            "origin_id": -10,
+            "origin_slot": 1,
+            "target_id": 42,
+            "target_slot": 0,
+            "type": "FLOAT"
+          }
+        ],
+        "extra": {}
+      }
+    ]
+  },
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.6332725900832572,
+      "offset": [
+        376.361230695306,
+        438.96750436877085
+      ]
+    },
+    "frontendVersion": "1.49.6",
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4
+}

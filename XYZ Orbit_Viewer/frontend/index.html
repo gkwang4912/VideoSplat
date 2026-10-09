@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b0d10" />
+    <meta
+      name="description"
+      content="以 12 條影像軌道與 Gaussian Splat PLY 檢視角色視角。"
+    />
+    <title>XYZ Orbit Viewer</title>
+  </head>
+  <body>
+    <div id="app-shell" class="app-shell is-booting">
+      <header class="topbar">
+        <div class="brand-block" aria-label="XYZ Orbit Viewer">
+          <span class="brand-mark">XYZ</span>
+          <span class="brand-copy">
+            <strong>Orbit Viewer</strong>
+            <small id="dataset-name">讀取資料中</small>
+          </span>
+        </div>
+
+        <div class="mode-switch" role="tablist" aria-label="檢視模式">
+          <button
+            id="image-mode-tab"
+            class="mode-tab is-active"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            aria-controls="image-mode-panel"
+          >
+            純圖片模式
+          </button>
+          <button
+            id="ply-mode-tab"
+            class="mode-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="ply-mode-panel"
+          >
+            PLY 對照模式
+          </button>
+        </div>
+
+        <div class="dataset-stats" aria-label="資料集統計">
+          <span><strong id="path-count">--</strong><small>路徑</small></span>
+          <span><strong id="sample-count">----</strong><small>相機</small></span>
+          <span><strong id="model-count">------</strong><small>Splats</small></span>
+        </div>
+      </header>
+
+      <main class="app-main">
+        <section
+          id="image-mode-panel"
+          class="mode-panel image-workspace"
+          role="tabpanel"
+          aria-labelledby="image-mode-tab"
+        >
+          <div
+            id="image-stage"
+            class="image-stage"
+            tabindex="0"
+            role="application"
+            aria-label="可拖曳的角色影像軌道。方向鍵每次移動一度。"
+          >
+            <div id="image-skeleton" class="image-skeleton" aria-hidden="true"></div>
+            <img id="orbit-image" alt="目前最接近相機視角的角色影像" draggable="false" />
+
+            <div class="stage-readout stage-readout-left" aria-live="polite">
+              <span class="readout-label">視角</span>
+              <strong id="orbit-heading">正面</strong>
+              <span id="orbit-coordinates" class="mono-text">水平 0° / 垂直 0°</span>
+            </div>
+
+            <div class="stage-readout stage-readout-right">
+              <span class="readout-label">操作</span>
+              <strong>拖曳影像</strong>
+              <span class="key-hint"><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> 每格 1°</span>
+            </div>
+
+            <div class="image-timeline">
+              <div class="timeline-meta">
+                <span>
+                  <span class="readout-label">目前路徑</span>
+                  <strong id="active-path-label">前方至左側</strong>
+                </span>
+                <span class="timeline-angle mono-text"><strong id="frame-angle">000°</strong> / 090°</span>
+              </div>
+              <input
+                id="frame-slider"
+                type="range"
+                min="0"
+                max="90"
+                step="1"
+                value="0"
+                aria-label="目前路徑影格"
+              />
+            </div>
+          </div>
+
+          <aside class="control-rail" aria-label="圖片模式控制">
+            <section class="rail-section view-summary">
+              <div class="section-heading">
+                <h2>最近影格</h2>
+                <span id="image-match-error" class="match-value mono-text">0.00°</span>
+              </div>
+              <div class="frame-identity">
+                <strong id="image-frame-id" class="mono-text">001 / 091</strong>
+                <span id="image-frame-path">01_front_to_left</span>
+              </div>
+              <p>拖曳會在全部相機位置中尋找最接近的影格。</p>
+            </section>
+
+            <section class="rail-section route-section">
+              <div class="section-heading">
+                <h2>12 條移動路徑</h2>
+                <span>點擊切換</span>
+              </div>
+              <div id="route-list" class="route-grid" role="list"></div>
+            </section>
+
+            <section class="rail-section axis-reference">
+              <h2>方向參考</h2>
+              <div class="direction-grid" aria-label="六個錨點方向">
+                <span>上</span>
+                <span>前</span>
+                <span>右</span>
+                <span>下</span>
+                <span>後</span>
+                <span>左</span>
+              </div>
+            </section>
+          </aside>
+        </section>
+
+        <section
+          id="ply-mode-panel"
+          class="mode-panel ply-workspace"
+          role="tabpanel"
+          aria-labelledby="ply-mode-tab"
+          hidden
+        >
+          <div id="ply-stage" class="ply-stage">
+            <div id="ply-canvas-host" class="ply-canvas-host" aria-label="PLY 三維檢視區"></div>
+
+            <div id="ply-loading" class="ply-loading" aria-live="polite">
+              <span class="readout-label">Gaussian Splat</span>
+              <strong id="ply-loading-title">準備載入 PLY</strong>
+              <span id="ply-loading-detail">第一次開啟約需讀取 32 MB</span>
+              <div class="load-track" aria-hidden="true"><span id="ply-load-bar"></span></div>
+            </div>
+
+            <div class="ply-toolbar" aria-label="PLY 控制">
+              <label class="model-scale-control" for="model-scale-input">
+                <span>人物大小</span>
+                <input
+                  id="model-scale-input"
+                  type="range"
+                  min="0.25"
+                  max="4"
+                  step="0.05"
+                  value="1"
+                />
+                <output id="model-scale-value" for="model-scale-input">1.00×</output>
+              </label>
+              <button id="toggle-cameras-button" type="button" aria-pressed="true">顯示相機路徑</button>
+              <button id="focus-model-button" type="button">模型特寫</button>
+              <button id="reset-view-button" type="button">全景視角</button>
+            </div>
+
+            <div class="axis-legend" aria-label="三軸顏色">
+              <span class="axis-x">X</span>
+              <span class="axis-y">Y</span>
+              <span class="axis-z">Z</span>
+              <small>拖曳旋轉 / 滾輪縮放</small>
+            </div>
+          </div>
+
+          <aside class="comparison-rail" aria-label="最近相機影像">
+            <div class="comparison-header">
+              <span class="readout-label">最近相機</span>
+              <strong id="ply-path-label">前方至左側</strong>
+              <span id="ply-match-error" class="mono-text">偏差 0.00°</span>
+            </div>
+
+            <div class="comparison-image-wrap">
+              <div id="comparison-skeleton" class="comparison-skeleton" aria-hidden="true"></div>
+              <img id="comparison-image" alt="與目前 PLY 視角最接近的相機影像" draggable="false" />
+            </div>
+
+            <div class="comparison-data">
+              <span>
+                <small>影格</small>
+                <strong id="ply-frame-id" class="mono-text">000</strong>
+              </span>
+              <span>
+                <small>路徑角度</small>
+                <strong id="ply-frame-angle" class="mono-text">0°</strong>
+              </span>
+              <span>
+                <small>相機座標</small>
+                <strong id="ply-camera-position" class="mono-text">0.00 / 0.00 / 0.00</strong>
+              </span>
+            </div>
+
+            <p class="comparison-note">
+              金色標記是目前最近的資料相機。旋轉 PLY 時，標記與右側影像會同步更新。
+            </p>
+          </aside>
+        </section>
+      </main>
+
+      <div id="boot-overlay" class="boot-overlay" aria-live="polite">
+        <div class="boot-panel">
+          <span class="brand-mark">XYZ</span>
+          <strong id="boot-title">建立相機索引</strong>
+          <span id="boot-detail">正在讀取 12 條影像路徑</span>
+        </div>
+      </div>
+
+      <div id="error-banner" class="error-banner" role="alert" hidden>
+        <strong>Viewer 無法啟動</strong>
+        <span id="error-message"></span>
+      </div>
+    </div>
+
+    <noscript>此 Viewer 需要 JavaScript 才能運作。</noscript>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
