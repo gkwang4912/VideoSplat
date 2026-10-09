@@ -1,5 +1,10 @@
 # VideoSplat
 
+<p align="right">
+  <a href="./README.md"><img src="./docs/assets/ui/lang-zh.svg" alt="中文" height="30"></a>
+  <a href="./README_EN.md"><img src="./docs/assets/ui/lang-en.svg" alt="English" height="30"></a>
+</p>
+
 ## 專案總覽（Project Overview）
 
 VideoSplat 是一組以 Python 為主的研究工具鏈。系統從單張角色圖片出發，使用影片模型產生角色環繞影片，再經過遮罩清理、COLMAP 相機姿態估計與 Brush 訓練建立 3D Gaussian Splatting（3DGS）角色。初始模型完成後，系統會建立固定的三維相機軌跡，渲染水平、垂直與斜向環繞視角，供第二階段影像細化與 3DGS 重建使用。
@@ -99,6 +104,7 @@ flowchart TB
 ```text
 VideoSplat/
 ├── README.md
+├── README_EN.md
 ├── docs/assets/demo/
 │   ├── character-2-source.webp
 │   ├── character-2-orbit.gif
