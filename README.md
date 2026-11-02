@@ -13,7 +13,7 @@
 
 VideoSplat V2 是一套以 Python 與檔案交換為核心的研究工具。它從單張全身角色圖片建立固定姿勢的 360° 骨架控制影片與已知相機軌跡，再透過 ComfyUI 生成角色環繞影片及遮罩，將生成影格與原始相機姿態組成 Brush 資料集，最後訓練 3D Gaussian Splatting（3DGS）PLY。
 
-V2 解決的核心問題，是避免從生成影片重新估計不穩定的相機：相機軌跡在影片生成前就已確定，後續 RGB、mask 與 COLMAP pose 以相同的 175 幀順序對齊。使用對象是研究單張角色多視角生成、已知姿態資料集與 3DGS 重建的工程師或研究者。專案性質是由四個可獨立執行的 Python 工具與一份 ComfyUI 工作流組成的研究管線，不是 Python library、常駐 service 或完整桌面 app。
+V2 解決從生成影片重新估計不穩定的相機路徑問題：相機軌跡在影片生成前就已確定，後續 RGB、mask 與 COLMAP pose 以相同的 175 幀順序對齊。使用對象是研究單張角色多視角生成、已知姿態資料集與 3DGS 重建的工程師或研究者。
 
 以下三個展示依序使用 V2 的真實 Stage 1 骨架影片、Stage 2 生成影片，以及由 Stage 4 `4.ply` 實際渲染的 Gaussian 模型環繞預覽。模型預覽透過 V1 `XYZ Orbit_Viewer` 的 `@sparkjsdev/spark` Gaussian renderer 直接載入 PLY，使用 Gaussian 的位置、scale、rotation、opacity 與 SH 顏色進行即時排序及 alpha 合成；這不是點雲預覽。
 
@@ -37,7 +37,6 @@ V2 解決的核心問題，是避免從生成影片重新估計不穩定的相�
 
 ## 系統架構說明（Architecture Overview）
 
-V2 不是 V1 五階段流程的延伸，但沿用 V1 的 Repository 佈局：四個階段都位於 `src/`，各自讀寫自己的 `input/` 與 `output/`。Stage 1 → 2 與 Stage 2 → 3 仍由使用者依資料契約準備輸入；Stage 4 預設直接讀取 Stage 3 完成的 RGBA dataset。外部執行環境只有 DWPose 模型、ComfyUI、FFmpeg 與 Brush CLI。
 
 ```mermaid
 flowchart LR
