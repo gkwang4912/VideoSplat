@@ -1,9 +1,18 @@
 # VideoSplat
 
-<p align="right">
-  <a href="./README.md"><img src="./docs/assets/ui/lang-zh.svg" alt="中文" height="30"></a>
-  <a href="./README_EN.md"><img src="./docs/assets/ui/lang-en.svg" alt="English" height="30"></a>
-</p>
+**V1.0.0 · Current Release**
+
+A research toolchain that turns a single character image into verifiable multi-view data, a 3D Gaussian Splatting model, and fixed camera trajectories.
+
+[繁體中文](./README.md) | [English](./README_EN.md) | [GitHub Releases](https://github.com/gkwang4912/VideoSplat/releases) | [CHANGELOG](./CHANGELOG.md) | [V1 Documentation](./docs/versions/V1.md) | [Versioning Policy](./docs/versions/VERSIONING.md)
+
+> The V1.0.0 documentation and release notes are ready. The Git tag and GitHub Release have not been created, so the release date remains Unreleased.
+
+## Version Information
+
+| Version | Status | Description |
+|---|---|---|
+| V1.0.0 | Current Release | Initial public release |
 
 ## Project Overview
 
@@ -37,19 +46,19 @@ The stages exchange files rather than communicating through a shared service. Th
 
 ```mermaid
 flowchart LR
-    A[Single character image] --> S1[1_suround_video]
+    A[Single character image] --> S1[src/1_suround_video]
     VM1[ComfyUI video model<br/>segmentation and mask tracking] <--> S1
     S1 --> V1[Orbit video and mask video]
-    V1 --> S2[2_colmap]
+    V1 --> S2[src/2_colmap]
     EXT1[FFmpeg FFprobe COLMAP] --> S2
     S2 --> D1[RGBA images<br/>COLMAP sparse model]
-    D1 --> S3[3_360brush]
+    D1 --> S3[src/3_360brush]
     EXT2[Brush CLI] --> S3
     S3 --> PLY[Gaussian PLY]
-    PLY --> S4[4_ply_ball_camera]
+    PLY --> S4[src/4_ply_ball_camera]
     D1 --> S4
     S4 --> CAM[Three rings and twelve paths<br/>images masks camera JSON]
-    CAM --> S5[5_XYZ Orbit_VideoModel]
+    CAM --> S5[src/5_XYZ Orbit_VideoModel]
     A --> S5
     VM2[ComfyUI video model<br/>latent refinement] <--> S5
     S5 --> D2[Second-stage COLMAP and Brush datasets]
@@ -83,11 +92,11 @@ The module-level data relationships are shown below.
 
 ```mermaid
 flowchart TB
-    P1[1_suround_video<br/>Python<br/>video.mp4 mask.mp4]
-    P2[2_colmap<br/>Python<br/>images sparse/0]
-    P3[3_360brush<br/>Python<br/>Gaussian PLY]
-    P4[4_ply_ball_camera<br/>Python<br/>path_graph cameras images masks]
-    P5[5_XYZ Orbit_VideoModel<br/>Python<br/>COLMAP Nerfstudio datasets]
+    P1[src/1_suround_video<br/>Python<br/>video.mp4 mask.mp4]
+    P2[src/2_colmap<br/>Python<br/>images sparse/0]
+    P3[src/3_360brush<br/>Python<br/>Gaussian PLY]
+    P4[src/4_ply_ball_camera<br/>Python<br/>path_graph cameras images masks]
+    P5[src/5_XYZ Orbit_VideoModel<br/>Python<br/>COLMAP Nerfstudio datasets]
     VW[XYZ Orbit_Viewer<br/>Python HTTP API<br/>JavaScript frontend]
 
     P1 -->|Source and mask videos| P2
@@ -105,69 +114,78 @@ flowchart TB
 VideoSplat/
 ├── README.md
 ├── README_EN.md
-├── docs/assets/demo/
-│   ├── character-2-source.webp
-│   ├── character-2-orbit.gif
-│   ├── character-2-orbit.mp4
-│   ├── character-2-3d.gif
-│   └── character-2-3d.mp4
-├── 1_suround_video/
-│   ├── main.py
-│   ├── config.py
-│   └── VideoSplat_360.json
-├── 2_colmap/
-│   ├── main.py
-│   ├── core.py
-│   ├── nodes.py
-│   └── requirements.txt
-├── 3_360brush/
-│   ├── main.py
-│   └── config.py
-├── 4_ply_ball_camera/
-│   ├── run.py
-│   ├── config.json
-│   ├── scripts/
-│   └── src/
-├── 5_XYZ Orbit_VideoModel/
-│   ├── main.py
-│   ├── config.json
-│   ├── workflows/
-│   └── tests/
+├── CHANGELOG.md
+├── src/
+│   ├── 1_suround_video/
+│   │   ├── main.py
+│   │   ├── config.py
+│   │   └── VideoSplat_360.json
+│   ├── 2_colmap/
+│   │   ├── main.py
+│   │   ├── core.py
+│   │   ├── nodes.py
+│   │   └── requirements.txt
+│   ├── 3_360brush/
+│   │   ├── main.py
+│   │   └── config.py
+│   ├── 4_ply_ball_camera/
+│   │   ├── run.py
+│   │   ├── config.json
+│   │   ├── scripts/
+│   │   └── src/
+│   └── 5_XYZ Orbit_VideoModel/
+│       ├── main.py
+│       ├── config.json
+│       ├── workflows/
+│       └── tests/
 ├── XYZ Orbit_Viewer/
 │   ├── app.py
 │   ├── config.json
 │   ├── frontend/
 │   └── tests/
-└── test/
-    ├── 5latitude/
-    └── VGGSfM/
+├── tests/
+│   ├── 5latitude/
+│   └── VGGSfM/
+├── docs/
+│   ├── versions/
+│   │   ├── V1.md
+│   │   ├── VERSIONING.md
+│   │   └── RELEASE_NOTES_V1.md
+│   └── assets/demo/
+│       ├── character-2-source.webp
+│       ├── character-2-orbit.gif
+│       ├── character-2-orbit.mp4
+│       ├── character-2-3d.gif
+│       └── character-2-3d.mp4
+├── .gitignore
+└── .gitattributes
 ```
 
-The numbered stage folders remain at the repository root, matching the original project design. Each stage has its own Python entry point and reads from or writes to local `input/` and `output/` directories. Runtime datasets, model weights, PLY files, and ordinary video outputs are ignored by Git. Only the compressed README demonstrations are versioned.
+The five numbered core stages are grouped under `src/`, while the Viewer remains an independent application at the repository root. Each stage has its own Python entry point and reads from or writes to local `input/` and `output/` directories. The former `test/` directory is now the root-level `tests/` directory. Runtime datasets, model weights, PLY files, and ordinary video outputs are ignored by Git. Only the compressed README demonstrations are versioned.
 
 ## Key Modules and Files
 
 | File | Responsibility | Relationship |
 |---|---|---|
-| `1_suround_video/main.py` | Uploads images, creates a ComfyUI prompt, waits for results, and downloads the main and mask videos | Reads `config.py` |
-| `2_colmap/core.py` | Extracts frames, cleans masks, defringes RGB, runs COLMAP, and validates datasets | Shared by the CLI and ComfyUI nodes |
-| `2_colmap/nodes.py` | Registers the Build Dataset and Preview Dataset nodes | Calls `core.run_pipeline` |
-| `3_360brush/main.py` | Validates RGBA/COLMAP data and invokes the Brush CLI | Reads `config.py` |
-| `4_ply_ball_camera/src/pipeline.py` | Coordinates PLY loading, canonical coordinates, rings, paths, videos, and validation | Uses the camera, render, Gaussian, and export modules |
-| `4_ply_ball_camera/src/camera.py` | Builds the canonical basis, great-circle paths, and continuous ring cameras | Produces per-frame camera metadata |
-| `4_ply_ball_camera/src/render.py` | Renders RGB and background-key masks with gsplat/CUDA | Reads Gaussian data and camera JSON |
-| `5_XYZ Orbit_VideoModel/main.py` | Schedules refinement, extracts frames, matches cameras, and builds COLMAP and Brush datasets | Reads `config.json` and the API workflow |
+| `src/1_suround_video/main.py` | Uploads images, creates a ComfyUI prompt, waits for results, and downloads the main and mask videos | Reads `config.py` |
+| `src/2_colmap/core.py` | Extracts frames, cleans masks, defringes RGB, runs COLMAP, and validates datasets | Shared by the CLI and ComfyUI nodes |
+| `src/2_colmap/nodes.py` | Registers the Build Dataset and Preview Dataset nodes | Calls `core.run_pipeline` |
+| `src/3_360brush/main.py` | Validates RGBA/COLMAP data and invokes the Brush CLI | Reads `config.py` |
+| `src/4_ply_ball_camera/src/pipeline.py` | Coordinates PLY loading, canonical coordinates, rings, paths, videos, and validation | Uses the camera, render, Gaussian, and export modules |
+| `src/4_ply_ball_camera/src/camera.py` | Builds the canonical basis, great-circle paths, and continuous ring cameras | Produces per-frame camera metadata |
+| `src/4_ply_ball_camera/src/render.py` | Renders RGB and background-key masks with gsplat/CUDA | Reads Gaussian data and camera JSON |
+| `src/5_XYZ Orbit_VideoModel/main.py` | Schedules refinement, extracts frames, matches cameras, and builds COLMAP and Brush datasets | Reads `config.json` and the API workflow |
 | `XYZ Orbit_Viewer/app.py` | Indexes path data and serves the local HTTP API and static files | Serves the built frontend |
 
 ## Installation and Requirements
 
 1. Install Python 3.9 or newer. The original files do not define the exact tested Python patch version.
 2. Install FFmpeg and FFprobe and add them to `PATH`.
-3. Install a CUDA-enabled COLMAP build and add it to `PATH`, or set `VIDEOSPLAT_COLMAP`. Install Stage 2 packages with `python -m pip install -r 2_colmap/requirements.txt`.
+3. Install a CUDA-enabled COLMAP build and add it to `PATH`, or set `VIDEOSPLAT_COLMAP`. Install Stage 2 packages with `python -m pip install -r src/2_colmap/requirements.txt`.
 4. Prepare a Brush CLI build that supports the required flags, add it to `PATH`, or set `VIDEOSPLAT_BRUSH_EXE`.
-5. Install Stage 4 packages with `python -m pip install -r 4_ply_ball_camera/requirements.txt`, and prepare a CUDA compiler and Visual Studio 2022 C++ Build Tools.
+5. Install Stage 4 packages with `python -m pip install -r src/4_ply_ball_camera/requirements.txt`, and prepare a CUDA compiler and Visual Studio 2022 C++ Build Tools.
 
-Additional Stage 1 Python packages are listed in `1_suround_video/requirements.txt`. Stages 1 and 5 require a running ComfyUI instance, the corresponding video-model workflows, and their custom nodes. Exact ComfyUI, custom-node, and model versions are not defined.
+Additional Stage 1 Python packages are listed in `src/1_suround_video/requirements.txt`. Stages 1 and 5 require a running ComfyUI instance, the corresponding video-model workflows, and their custom nodes. Exact ComfyUI, custom-node, and model versions are not defined.
 
 The Viewer backend uses only the Python standard library. Frontend packages are locked in `XYZ Orbit_Viewer/package-lock.json`; run `npm ci` and `npm run build`. The minimum Node.js version is not defined.
 
@@ -175,11 +193,11 @@ The Viewer backend uses only the Python standard library. Frontend packages are 
 
 Run the following commands from the repository root. Every stage retains its own `input/` and `output/` directories.
 
-1. Put character images in `1_suround_video/input/`, start ComfyUI, and run `python 1_suround_video/main.py`.
-2. Put each main video and its filename-containing-`mask` companion in `2_colmap/input/<group>/`, then run `python 2_colmap/main.py`.
-3. Put the previous dataset in `3_360brush/input/<group>/brush_dataset_rgba_clean/`, then run `python 3_360brush/main.py`.
-4. Put a PLY, its COLMAP text model, and registered images in `4_ply_ball_camera/input/` or `input/<group>/`, then run `python 4_ply_ball_camera/run.py`.
-5. Put the Stage 4 path videos and camera paths in the expected locations under `5_XYZ Orbit_VideoModel/input/`. Run `python "5_XYZ Orbit_VideoModel/main.py" --check`, followed by `python "5_XYZ Orbit_VideoModel/main.py"`.
+1. Put character images in `src/1_suround_video/input/`, start ComfyUI, and run `python src/1_suround_video/main.py`.
+2. Put each main video and its filename-containing-`mask` companion in `src/2_colmap/input/<group>/`, then run `python src/2_colmap/main.py`.
+3. Put the previous dataset in `src/3_360brush/input/<group>/brush_dataset_rgba_clean/`, then run `python src/3_360brush/main.py`.
+4. Put a PLY, its COLMAP text model, and registered images in `src/4_ply_ball_camera/input/` or `input/<group>/`, then run `python src/4_ply_ball_camera/run.py`.
+5. Put the Stage 4 path videos and camera paths in the expected locations under `src/5_XYZ Orbit_VideoModel/input/`. Run `python "src/5_XYZ Orbit_VideoModel/main.py" --check`, followed by `python "src/5_XYZ Orbit_VideoModel/main.py"`.
 
 To use the Viewer, place the Stage 4 `path_graph.json`, `anchors/`, `paths/`, and PLY under `XYZ Orbit_Viewer/input/`. Run `npm ci` and `npm run build` in the Viewer folder, then run `python "XYZ Orbit_Viewer/app.py"` from the repository root. The default URL is `http://127.0.0.1:8000/`.
 
@@ -187,13 +205,13 @@ To use the Viewer, place the Stage 4 `path_graph.json`, `anchors/`, `paths/`, an
 
 | Location | Settings | Effect |
 |---|---|---|
-| `1_suround_video/config.py` | ComfyUI URL, workflow model files, seed, dimensions, duration, masks, and prompt | Controls initial orbit and mask generation |
-| `2_colmap/core.py` `PipelineConfig` | Maximum frames, mask threshold, erosion, defringe, registration ratio, and camera arc | Controls image cleanup and COLMAP validation |
+| `src/1_suround_video/config.py` | ComfyUI URL, workflow model files, seed, dimensions, duration, masks, and prompt | Controls initial orbit and mask generation |
+| `src/2_colmap/core.py` `PipelineConfig` | Maximum frames, mask threshold, erosion, defringe, registration ratio, and camera arc | Controls image cleanup and COLMAP validation |
 | `VIDEOSPLAT_COLMAP` or `--colmap` | COLMAP executable or installation directory | Overrides PATH discovery |
-| `3_360brush/config.py` | Brush steps, splat limit, resolution, SH, alpha, growth, and batch policy | Controls initial 3DGS training |
+| `src/3_360brush/config.py` | Brush steps, splat limit, resolution, SH, alpha, growth, and batch policy | Controls initial 3DGS training |
 | `VIDEOSPLAT_BRUSH_EXE` | Brush CLI path | Overrides PATH discovery |
-| `4_ply_ball_camera/config.json` | Frame interval, rendering, masks, PLY scale, near/far planes, and tolerances | Controls fixed cameras and gsplat rendering |
-| `5_XYZ Orbit_VideoModel/config.json` | ComfyUI URL, input paths, workflow, frame counts, seed, timeout, and node IDs | Controls second-stage generation and dataset output |
+| `src/4_ply_ball_camera/config.json` | Frame interval, rendering, masks, PLY scale, near/far planes, and tolerances | Controls fixed cameras and gsplat rendering |
+| `src/5_XYZ Orbit_VideoModel/config.json` | ComfyUI URL, input paths, workflow, frame counts, seed, timeout, and node IDs | Controls second-stage generation and dataset output |
 | `XYZ Orbit_Viewer/config.json` | Drag sensitivity, camera points, paths, model scale, axes, and view distance | Controls Viewer presentation |
 
 The project does not require a `.env` file and contains no confirmed cloud API token. Stages 1 and 5 use the configured ComfyUI HTTP URL.
@@ -201,9 +219,9 @@ The project does not require a `.env` file and contains no confirmed cloud API t
 ## Developer Guide
 
 1. Read the five numbered stages in order, starting with each `main.py` or `run.py`, followed by its configuration file.
-2. To trace data formats, read `2_colmap/core.py`, `4_ply_ball_camera/src/source_camera.py`, `camera.py`, `pipeline.py`, and `5_XYZ Orbit_VideoModel/main.py`.
+2. To trace data formats, read `src/2_colmap/core.py`, `src/4_ply_ball_camera/src/source_camera.py`, `camera.py`, `pipeline.py`, and `src/5_XYZ Orbit_VideoModel/main.py`.
 3. When changing camera conventions, verify the COLMAP/OpenCV and Nerfstudio/OpenGL conversions together with W2C/C2W JSON fields.
-4. After changing Stage 4 rendering or mask logic, run `4_ply_ball_camera/scripts/validate_project.py` and inspect `validation.json`.
+4. After changing Stage 4 rendering or mask logic, run `src/4_ply_ball_camera/scripts/validate_project.py` and inspect `validation.json`.
 5. When changing Stage 5 workflow node IDs, update `config.json.workflow_nodes`. After Viewer changes, run both frontend and Python tests.
 
 New processing stages should preserve the existing file contracts and emit traceable metadata. Changes to camera JSON, `path_graph.json`, or `transforms.json` must be coordinated with all downstream readers.
@@ -215,6 +233,7 @@ New processing stages should preserve the existing file contracts and emit trace
 - Stage 3 depends on a Brush CLI build with specific flags; a compatible version and build process are not defined.
 - The Stage 4 launcher is currently Windows-specific, searches for Visual Studio 2022, and defaults `TORCH_CUDA_ARCH_LIST` to `12.0`.
 - Stage 5 writes an empty COLMAP `points3D.txt` because it reuses known camera poses and does not create fictional 3D feature points.
+- During release preparation, `npm audit` reported one high-severity advisory group for the Viewer's locked Vite 8.2.2 dependency. The available 8.3.5 fix still requires compatibility review before a separate dependency update.
 
 No explicit `TODO`, `FIXME`, or `XXX` markers were found in the code. The items above are derived from the implemented entry points, configuration, validation logic, and test scope.
 

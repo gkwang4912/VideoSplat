@@ -4,6 +4,8 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+htmlcov/
 .venv/
 venv/
 
@@ -18,6 +20,7 @@ XYZ Orbit_Viewer/frontend/dist/
 **/batch_report.json
 **/history.json
 **/brush.log
+*.log
 **/target/
 
 # Large runtime media and model artifacts
@@ -33,6 +36,12 @@ XYZ Orbit_Viewer/frontend/dist/
 *.ckpt
 *.pt
 *.pth
+*.npy
+*.npz
+*.pkl
+*.pickle
+*.sqlite
+*.sqlite3
 
 # README demo media is intentionally versioned
 !docs/assets/demo/*.mp4
@@ -47,5 +56,10 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+*.secret
+*.secrets
+secrets.*
+credentials*.json
+config.local.*
 *.pem
 *.key
