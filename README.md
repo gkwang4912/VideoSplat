@@ -15,20 +15,24 @@ VideoSplat V2 是一套以 Python 與檔案交換為核心的研究工具。它�
 
 V2 解決的核心問題，是避免從生成影片重新估計不穩定的相機：相機軌跡在影片生成前就已確定，後續 RGB、mask 與 COLMAP pose 以相同的 175 幀順序對齊。使用對象是研究單張角色多視角生成、已知姿態資料集與 3DGS 重建的工程師或研究者。專案性質是由四個可獨立執行的 Python 工具與一份 ComfyUI 工作流組成的研究管線，不是 Python library、常駐 service 或完整桌面 app。
 
-目前 V2 的實際展示素材來自 Stage 1 預設骨架輸出，不代表生成角色外觀或最終 3DGS 品質。
+以下三個展示依序使用 V2 的真實 Stage 1 骨架影片、Stage 2 生成影片，以及由 Stage 4 `4.ply` 實際渲染的 Gaussian 模型環繞預覽。模型預覽透過 V1 `XYZ Orbit_Viewer` 的 `@sparkjsdev/spark` Gaussian renderer 直接載入 PLY，使用 Gaussian 的位置、scale、rotation、opacity 與 SH 顏色進行即時排序及 alpha 合成；這不是點雲預覽。
 
 <table>
   <tr>
-    <th>關鍵角度預覽</th>
-    <th>175 幀骨架環繞</th>
+    <th>175 幀骨架</th>
+    <th>生成影像</th>
+    <th>生成模型</th>
   </tr>
   <tr>
-    <td><img src="docs/assets/demo/v2/pose_control_debug.png" width="320" alt="V2 預設骨架關鍵角度預覽"></td>
-    <td><img src="docs/assets/demo/v2/pose_control_video_175.gif" width="240" alt="V2 175 幀骨架環繞 GIF"></td>
+    <td><img src="docs/assets/demo/v2/pose_control_video_175.gif" width="260" alt="V2 175 幀骨架環繞"></td>
+    <td><img src="docs/assets/demo/v2/generated_character_video.gif" width="260" alt="V2 生成角色環繞影像"></td>
+    <td><img src="docs/assets/demo/v2/gaussian_model_orbit.gif" width="260" alt="V2 Gaussian 模型環繞渲染"></td>
   </tr>
 </table>
 
-- [觀看 V2 骨架環繞 MP4](docs/assets/demo/v2/pose_control_video_175.mp4)
+- [觀看 175 幀骨架 MP4](docs/assets/demo/v2/pose_control_video_175.mp4)
+- [觀看生成影像 MP4](docs/assets/demo/v2/generated_character_video.mp4)
+- [觀看生成模型 MP4](docs/assets/demo/v2/gaussian_model_orbit.mp4)
 - [查看 V1 原始展示與技術文件](docs/versions/README_V1.md)
 
 ## 系統架構說明（Architecture Overview）

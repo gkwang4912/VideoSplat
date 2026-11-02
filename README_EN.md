@@ -15,20 +15,24 @@ VideoSplat V2 is a file-oriented Python research toolchain. Starting from one fu
 
 V2 addresses camera instability by defining the camera path before generated video exists. RGB frames, masks, and COLMAP poses remain aligned in the same 175-frame order. The project targets engineers and researchers working on single-image character view generation, known-pose datasets, and 3DGS reconstruction. It is a four-stage research toolchain with a ComfyUI workflow, not a Python library, persistent service, or complete desktop application.
 
-The current V2 demo comes from the actual Stage 1 default-skeleton output. It does not claim to demonstrate generated character appearance or final 3DGS quality.
+The three previews below use the actual V2 Stage 1 skeleton video, the Stage 2 generated character video, and an orbit rendered from the Stage 4 `4.ply`. The model preview is loaded directly by the V1 `XYZ Orbit_Viewer` through the `@sparkjsdev/spark` Gaussian renderer, using each Gaussian's position, scale, rotation, opacity, and SH color for real-time sorting and alpha compositing. It is not a point-cloud preview.
 
 <table>
   <tr>
-    <th>Key-angle preview</th>
-    <th>175-frame skeleton orbit</th>
+    <th>175-frame skeleton</th>
+    <th>Generated character</th>
+    <th>Generated model</th>
   </tr>
   <tr>
-    <td><img src="docs/assets/demo/v2/pose_control_debug.png" width="320" alt="V2 default skeleton key-angle preview"></td>
-    <td><img src="docs/assets/demo/v2/pose_control_video_175.gif" width="240" alt="V2 175-frame skeleton orbit GIF"></td>
+    <td><img src="docs/assets/demo/v2/pose_control_video_175.gif" width="260" alt="V2 175-frame skeleton orbit"></td>
+    <td><img src="docs/assets/demo/v2/generated_character_video.gif" width="260" alt="V2 generated character orbit"></td>
+    <td><img src="docs/assets/demo/v2/gaussian_model_orbit.gif" width="260" alt="V2 Gaussian model orbit render"></td>
   </tr>
 </table>
 
-- [View the V2 skeleton-orbit MP4](docs/assets/demo/v2/pose_control_video_175.mp4)
+- [View the 175-frame skeleton MP4](docs/assets/demo/v2/pose_control_video_175.mp4)
+- [View the generated-character MP4](docs/assets/demo/v2/generated_character_video.mp4)
+- [View the generated-model MP4](docs/assets/demo/v2/gaussian_model_orbit.mp4)
 - [Open the original V1 demos and technical documentation](docs/versions/README_V1_EN.md)
 
 ## Architecture Overview
