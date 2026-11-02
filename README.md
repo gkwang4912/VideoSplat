@@ -15,7 +15,7 @@ VideoSplat V2 是一套以 Python 與檔案交換為核心的研究工具。它�
 
 V2 解決從生成影片重新估計不穩定的相機路徑問題：相機軌跡在影片生成前就已確定，後續 RGB、mask 與 COLMAP pose 以相同的 175 幀順序對齊。使用對象是研究單張角色多視角生成、已知姿態資料集與 3DGS 重建的工程師或研究者。
 
-以下三個展示依序使用 V2 的真實 Stage 1 骨架影片、Stage 2 生成影片，以及由 Stage 4 `4.ply` 實際渲染的 Gaussian 模型環繞預覽。模型預覽透過 V1 `XYZ Orbit_Viewer` 的 `@sparkjsdev/spark` Gaussian renderer 直接載入 PLY，使用 Gaussian 的位置、scale、rotation、opacity 與 SH 顏色進行即時排序及 alpha 合成；這不是點雲預覽。
+以下三個展示依序使用 V2 的真實 Stage 1 骨架影片、Stage 2 生成影片，以及由 Stage 4 `4.ply` 實際渲染的 Gaussian 模型環繞預覽。
 
 <table>
   <tr>
