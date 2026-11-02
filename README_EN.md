@@ -1,244 +1,249 @@
 # VideoSplat
 
-**V1.0.0 · Current Release**
+**V2.0.0 Release Candidate · Unreleased**
 
-A research toolchain that turns a single character image into verifiable multi-view data, a 3D Gaussian Splatting model, and fixed camera trajectories.
+[繁體中文](./README.md) | [English](./README_EN.md) | [CHANGELOG](./CHANGELOG.md) | [GitHub Releases](https://github.com/gkwang4912/VideoSplat/releases) | [V2 Architecture](./docs/versions/V2_ARCHITECTURE.md) | [V1 → V2 Migration Guide](./docs/versions/MIGRATION_V1_TO_V2.md)
 
-[繁體中文](./README.md) | [English](./README_EN.md) | [GitHub Releases](https://github.com/gkwang4912/VideoSplat/releases) | [CHANGELOG](./CHANGELOG.md) | [V1 Documentation](./docs/versions/V1.md) | [Versioning Policy](./docs/versions/VERSIONING.md)
-
-> The V1.0.0 documentation and release notes are ready. The Git tag and GitHub Release have not been created, so the release date remains Unreleased.
-
-## Version Information
-
-| Version | Status | Description |
+| Version | Status | Documentation |
 |---|---|---|
-| V1.0.0 | Current Release | Initial public release |
+| V2.0.0 | Release Candidate / Unreleased | Current README |
+| V1.0.0 | Legacy | [V1 中文 README](./docs/versions/README_V1.md) / [English](./docs/versions/README_V1_EN.md) |
 
 ## Project Overview
 
-VideoSplat is a Python-first research toolchain that turns a single character image into a 3D Gaussian Splatting (3DGS) character. It uses a video model to generate an orbiting character video, cleans and segments its frames, estimates camera poses with COLMAP, and trains an initial 3DGS representation with Brush. The initial model is then rendered along fixed horizontal, vertical, and diagonal camera paths for a second refinement and reconstruction stage.
+VideoSplat V2 is a file-oriented Python research toolchain. Starting from one full-body character image, it creates a fixed-pose 360-degree skeleton-control video and known camera trajectory, uses ComfyUI to generate character views and masks, combines generated frames with the original poses into a Brush dataset, and trains a 3D Gaussian Splatting (3DGS) PLY.
 
-The project addresses a specific problem: converting cross-view frames from generated video into verifiable reconstruction data with traceable camera poses. It is intended for engineers and researchers working on single-image 3D reconstruction, multi-view generation, 3DGS, Gaussian-to-Mesh conversion, and character animation. The repository contains five Python processing stages, ComfyUI workflows, and a local viewer.
+V2 addresses camera instability by defining the camera path before generated video exists. RGB frames, masks, and COLMAP poses remain aligned in the same 175-frame order. The project targets engineers and researchers working on single-image character view generation, known-pose datasets, and 3DGS reconstruction. It is a four-stage research toolchain with a ComfyUI workflow, not a Python library, persistent service, or complete desktop application.
 
-The following example uses character 2 from the original project. The GIF files play directly on GitHub, and full MP4 versions are linked below.
+The current V2 demo comes from the actual Stage 1 default-skeleton output. It does not claim to demonstrate generated character appearance or final 3DGS quality.
 
 <table>
   <tr>
-    <th>Source character image</th>
-    <th>Generated orbit video</th>
-    <th>3DGS model render</th>
+    <th>Key-angle preview</th>
+    <th>175-frame skeleton orbit</th>
   </tr>
   <tr>
-    <td><img src="docs/assets/demo/character-2-source.webp" width="260" alt="Source image for character 2"></td>
-    <td><img src="docs/assets/demo/character-2-orbit.gif" width="260" alt="Generated orbit video for character 2"></td>
-    <td><img src="docs/assets/demo/character-2-3d.gif" width="260" alt="Horizontal 3DGS render of character 2"></td>
+    <td><img src="docs/assets/demo/v2/pose_control_debug.png" width="320" alt="V2 default skeleton key-angle preview"></td>
+    <td><img src="docs/assets/demo/v2/pose_control_video_175.gif" width="240" alt="V2 175-frame skeleton orbit GIF"></td>
   </tr>
 </table>
 
-- [View the full orbit video MP4](docs/assets/demo/character-2-orbit.mp4)
-- [View the full 3DGS model render MP4](docs/assets/demo/character-2-3d.mp4)
+- [View the V2 skeleton-orbit MP4](docs/assets/demo/v2/pose_control_video_175.mp4)
+- [Open the original V1 demos and technical documentation](docs/versions/README_V1_EN.md)
 
 ## Architecture Overview
 
-All five processing stages use Python as their entry point and orchestration layer. Stage 1 creates an orbit video and mask from a source image. Stage 2 extracts frames, cleans RGBA images, runs COLMAP, and validates the reconstruction. Stage 3 invokes the Brush CLI to train the initial Gaussian PLY. Stage 4 keeps the Gaussian model fixed, derives a canonical coordinate system from the first registered camera, and renders six anchors, three complete rings, and twelve camera paths. Stage 5 sends path videos, the reference image, and camera JSON data through a video-model refinement workflow, then exports COLMAP and Brush datasets with known poses.
-
-The stages exchange files rather than communicating through a shared service. Their primary data contracts are MP4 videos, RGBA PNG images, COLMAP text models, Gaussian PLY files, per-frame camera JSON, `path_graph.json`, and Nerfstudio `transforms.json`.
+V2 is not an extension of the V1 five-stage pipeline, but it follows the V1 repository layout: all four stages live under `src/` and own separate `input/` and `output/` directories. Users still prepare the Stage 1 → 2 and Stage 2 → 3 handoffs according to the documented contracts. Stage 4 reads the RGBA dataset produced by Stage 3 directly. External runtime components are DWPose models, ComfyUI, FFmpeg, and the Brush CLI.
 
 ```mermaid
 flowchart LR
-    A[Single character image] --> S1[src/1_suround_video]
-    VM1[ComfyUI video model<br/>segmentation and mask tracking] <--> S1
-    S1 --> V1[Orbit video and mask video]
-    V1 --> S2[src/2_colmap]
-    EXT1[FFmpeg FFprobe COLMAP] --> S2
-    S2 --> D1[RGBA images<br/>COLMAP sparse model]
-    D1 --> S3[src/3_360brush]
-    EXT2[Brush CLI] --> S3
-    S3 --> PLY[Gaussian PLY]
-    PLY --> S4[src/4_ply_ball_camera]
-    D1 --> S4
-    S4 --> CAM[Three rings and twelve paths<br/>images masks camera JSON]
-    CAM --> S5[src/5_XYZ Orbit_VideoModel]
-    A --> S5
-    VM2[ComfyUI video model<br/>latent refinement] <--> S5
-    S5 --> D2[Second-stage COLMAP and Brush datasets]
-    CAM --> VIEW[XYZ Orbit_Viewer]
-    PLY --> VIEW
+    IMG[Single full-body image] --> S1[src/1_360_skeleton]
+    DW[DWPose ONNX<br/>silhouette fallback] --> S1
+    S1 --> CTRL[Aligned image<br/>175-frame skeleton video]
+    S1 --> CAM[Known COLMAP cameras]
+    CTRL --> S2[src/2_suround_video]
+    CF[ComfyUI<br/>MiniMax H3 + ControlNet] --> S2
+    S2 --> VID[Generated RGB video<br/>generated mask video]
+    VID --> S3[src/3_virtual_camera]
+    CAM --> S3
+    S3 --> DATA[Known-pose Brush dataset<br/>RGBA images masks sparse/0]
+    DATA --> S4[src/4_360brush]
+    BR[Brush CLI] --> S4
+    S4 --> PLY[Gaussian PLY]
+```
+
+Module responsibilities and source dependencies are shown below. The `3_virtual_camera` name is retained from the V2 source, but the implementation does not create new cameras; it enforces reuse of Stage 1 poses.
+
+```mermaid
+flowchart TB
+    C1[src/1_360_skeleton/config.py] --> M1[src/1_360_skeleton/main.py]
+    VENDOR[vendored comfyui_controlnet_aux] --> DWB[dwpose_backend.py]
+    MODELS[local DWPose ONNX] --> DWB
+    DWB --> M1
+    C2[src/2_suround_video/config.py] --> M2[src/2_suround_video/main.py]
+    WF[VideoSplat_2_api.json] --> M2
+    M2 --> API[ComfyUI HTTP API]
+    C3[src/3_virtual_camera/config.py] --> M3[src/3_virtual_camera/main.py]
+    C4[src/4_360brush/config.py] --> M4[src/4_360brush/main.py]
+    M3 --> M4
 ```
 
 ## System Flow
 
-Stage 2 requires a minimum registered-image ratio of 80%, a camera arc of at least 300 degrees, and a bounded camera step. A failed group is recorded while batch processing continues with the next group. Stage 4 validates the fixed radius, path angles, shared anchors, camera intrinsics, Front reprojection, mask format, and video dimensions. A failed validation stops that dataset. Stage 5 can resume from generated videos or skip generation and only prepare datasets.
+Stage 1 detects the foreground and aligns each input character. When DWPose is available, model joints are used and missing joints are filled from silhouette estimates. If the model cannot load or detect a person, the stage falls back to silhouette estimation. A fixed 3D skeleton is projected through 175 evenly spaced cameras, producing the control video, frame PNGs, camera JSON, and a COLMAP text model.
+
+Stage 2 processes only image/video pairs explicitly listed in `config.py`. It validates the API workflow's `LoadImage`, `LoadVideo`, and `SaveVideo` nodes against ComfyUI `/object_info`, uploads inputs, queues the prompt, polls history, and downloads two video outputs. Stage 3 treats output 1 as the mask and output 2 as RGB, then pairs decoded frames with the original order in Stage 1 `images.txt`.
+
+Stage 3 now owns RGBA conversion. It converts each mask to binary `{0, 255}` alpha, writes that alpha into the matching RGB PNG, and retains the separate `masks/` directory for inspection. Output validation checks every RGBA alpha channel against its mask. Stage 4 reads `src/3_virtual_camera/output/<group>/brush_dataset/` directly, so no manual RGBA preparation or dataset copy is required.
 
 ```mermaid
 flowchart TD
-    S[Place a single character image] --> G[Generate orbit and mask videos]
-    G --> F[Uniformly extract frames with FFmpeg]
-    F --> R[Clean masks and build RGBA images]
-    R --> C[COLMAP feature extraction matching and mapping]
-    C --> Q{Registration ratio and camera arc pass}
-    Q -- No --> X[Record failure and process next group]
-    Q -- Yes --> B[Train initial 3DGS with Brush]
-    B --> O[Build canonical coordinates and spherical cameras]
-    O --> T[Render three 360 degree rings and twelve paths]
-    T --> V{Camera and rendering validation passes}
-    V -- No --> Y[Stop and inspect validation.json]
-    V -- Yes --> L[Refine views with the video model]
-    L --> K[Build datasets using known camera poses]
-    K --> Z[Run the second 3DGS reconstruction]
-```
-
-The module-level data relationships are shown below.
-
-```mermaid
-flowchart TB
-    P1[src/1_suround_video<br/>Python<br/>video.mp4 mask.mp4]
-    P2[src/2_colmap<br/>Python<br/>images sparse/0]
-    P3[src/3_360brush<br/>Python<br/>Gaussian PLY]
-    P4[src/4_ply_ball_camera<br/>Python<br/>path_graph cameras images masks]
-    P5[src/5_XYZ Orbit_VideoModel<br/>Python<br/>COLMAP Nerfstudio datasets]
-    VW[XYZ Orbit_Viewer<br/>Python HTTP API<br/>JavaScript frontend]
-
-    P1 -->|Source and mask videos| P2
-    P2 -->|brush_dataset_rgba_clean| P3
-    P2 -->|First registered camera and frames| P4
-    P3 -->|One PLY per dataset| P4
-    P4 -->|Path videos and camera JSON| P5
-    P4 -->|path_graph and rendered images| VW
-    P3 -->|Gaussian PLY| VW
+    A[Place full-body character image] --> B[Detect foreground and align]
+    B --> C{DWPose available and successful}
+    C -- Yes --> D[DWPose joints + silhouette for missing points]
+    C -- No --> E[Silhouette pose fallback]
+    D --> F[Render 175 skeleton and camera frames]
+    E --> F
+    F --> G[Configure Stage 2 INPUT_JOBS]
+    G --> H{ComfyUI nodes and inputs valid}
+    H -- No --> X[Stop and report missing requirements]
+    H -- Yes --> I[Generate RGB and mask videos]
+    I --> J{Two videos match all 175 poses}
+    J -- No --> Y[Stop dataset export]
+    J -- Yes --> K[Compose and validate RGBA images]
+    K --> N[Export RGBA images masks sparse/0 and ZIP]
+    N --> L{Brush CLI and dataset valid}
+    L -- No --> Z[Record error or continue next group]
+    L -- Yes --> M[Train and export PLY]
 ```
 
 ## Folder Structure
 
 ```text
 VideoSplat/
+├── src/
+│   ├── 1_360_skeleton/
+│   │   ├── main.py
+│   │   ├── config.py
+│   │   ├── dwpose_backend.py
+│   │   ├── models/README.md
+│   │   └── third_party/comfyui_controlnet_aux/
+│   ├── 2_suround_video/
+│   │   ├── main.py
+│   │   ├── config.py
+│   │   └── workflows/
+│   ├── 3_virtual_camera/
+│   │   ├── main.py
+│   │   └── config.py
+│   └── 4_360brush/
+│       ├── main.py
+│       └── config.py
+├── tests/
+│   └── test_rgba_handoff.py
+├── docs/
+│   ├── assets/demo/
+│   └── versions/
+├── requirements.txt
 ├── README.md
 ├── README_EN.md
 ├── CHANGELOG.md
-├── src/
-│   ├── 1_suround_video/
-│   │   ├── main.py
-│   │   ├── config.py
-│   │   └── VideoSplat_360.json
-│   ├── 2_colmap/
-│   │   ├── main.py
-│   │   ├── core.py
-│   │   ├── nodes.py
-│   │   └── requirements.txt
-│   ├── 3_360brush/
-│   │   ├── main.py
-│   │   └── config.py
-│   ├── 4_ply_ball_camera/
-│   │   ├── run.py
-│   │   ├── config.json
-│   │   ├── scripts/
-│   │   └── src/
-│   └── 5_XYZ Orbit_VideoModel/
-│       ├── main.py
-│       ├── config.json
-│       ├── workflows/
-│       └── tests/
-├── XYZ Orbit_Viewer/
-│   ├── app.py
-│   ├── config.json
-│   ├── frontend/
-│   └── tests/
-├── tests/
-│   ├── 5latitude/
-│   └── VGGSfM/
-├── docs/
-│   ├── versions/
-│   │   ├── V1.md
-│   │   ├── VERSIONING.md
-│   │   └── RELEASE_NOTES_V1.md
-│   └── assets/demo/
-│       ├── character-2-source.webp
-│       ├── character-2-orbit.gif
-│       ├── character-2-orbit.mp4
-│       ├── character-2-3d.gif
-│       └── character-2-3d.mp4
 ├── .gitignore
 └── .gitattributes
 ```
 
-The five numbered core stages are grouped under `src/`, while the Viewer remains an independent application at the repository root. Each stage has its own Python entry point and reads from or writes to local `input/` and `output/` directories. The former `test/` directory is now the root-level `tests/` directory. Runtime datasets, model weights, PLY files, and ordinary video outputs are ignored by Git. Only the compressed README demonstrations are versioned.
+- `src/1_360_skeleton/`: character alignment, pose estimation, fixed cameras, video, and COLMAP pose export.
+- `src/2_suround_video/`: ComfyUI API client and UI/API workflow JSON files.
+- `src/3_virtual_camera/`: RGB/mask decoding, RGBA composition, known-pose reuse, validation, and Brush dataset/ZIP export.
+- `src/4_360brush/`: direct Stage 3 dataset input, Brush CLI version checks, batch command construction, logging, and PLY verification.
+- `tests/`: offline regression coverage for Stage 3 RGBA composition and the Stage 3 → 4 handoff.
+- `docs/versions/`: V1 snapshots, V1/V2 version documents, architecture, migration guide, and release notes.
+- Per-stage inputs, outputs, models, virtual environments, and training artifacts remain local and are ignored by Git.
 
-## Key Modules and Files
+## Key Modules & Files
 
 | File | Responsibility | Relationship |
 |---|---|---|
-| `src/1_suround_video/main.py` | Uploads images, creates a ComfyUI prompt, waits for results, and downloads the main and mask videos | Reads `config.py` |
-| `src/2_colmap/core.py` | Extracts frames, cleans masks, defringes RGB, runs COLMAP, and validates datasets | Shared by the CLI and ComfyUI nodes |
-| `src/2_colmap/nodes.py` | Registers the Build Dataset and Preview Dataset nodes | Calls `core.run_pipeline` |
-| `src/3_360brush/main.py` | Validates RGBA/COLMAP data and invokes the Brush CLI | Reads `config.py` |
-| `src/4_ply_ball_camera/src/pipeline.py` | Coordinates PLY loading, canonical coordinates, rings, paths, videos, and validation | Uses the camera, render, Gaussian, and export modules |
-| `src/4_ply_ball_camera/src/camera.py` | Builds the canonical basis, great-circle paths, and continuous ring cameras | Produces per-frame camera metadata |
-| `src/4_ply_ball_camera/src/render.py` | Renders RGB and background-key masks with gsplat/CUDA | Reads Gaussian data and camera JSON |
-| `src/5_XYZ Orbit_VideoModel/main.py` | Schedules refinement, extracts frames, matches cameras, and builds COLMAP and Brush datasets | Reads `config.json` and the API workflow |
-| `XYZ Orbit_Viewer/app.py` | Indexes path data and serves the local HTTP API and static files | Serves the built frontend |
+| `src/1_360_skeleton/main.py` | Alignment, pose fallback, skeleton projection, and video/COLMAP/JSON export | Reads Stage 1 config and can call DWPose backend |
+| `src/1_360_skeleton/dwpose_backend.py` | Loads local detector/pose ONNX files and returns body/hand joints | Uses vendored `comfyui_controlnet_aux` |
+| `src/2_suround_video/main.py` | Validates, uploads, queues, polls, and downloads ComfyUI jobs | Reads API workflow and Stage 2 config |
+| `VideoSplat_2_api.json` | Executable generation, background removal, tracking, and dual-video graph | Loaded by Stage 2 main |
+| `src/3_virtual_camera/main.py` | Parses COLMAP text, decodes videos, binarizes masks, composes and validates RGBA datasets | Preserves Stage 1 poses; performs no camera estimation |
+| `src/4_360brush/main.py` | Validates Stage 3 RGBA datasets and Brush flags, runs batch training, logs, and checks output | Reads Stage 3 output by default |
+| `docs/versions/V2_ARCHITECTURE.md` | Technical baseline for V2 facts and contracts | Basis for README and release documents |
 
-## Installation and Requirements
+## Installation & Requirements
 
-1. Install Python 3.9 or newer. The original files do not define the exact tested Python patch version.
-2. Install FFmpeg and FFprobe and add them to `PATH`.
-3. Install a CUDA-enabled COLMAP build and add it to `PATH`, or set `VIDEOSPLAT_COLMAP`. Install Stage 2 packages with `python -m pip install -r src/2_colmap/requirements.txt`.
-4. Prepare a Brush CLI build that supports the required flags, add it to `PATH`, or set `VIDEOSPLAT_BRUSH_EXE`.
-5. Install Stage 4 packages with `python -m pip install -r src/4_ply_ball_camera/requirements.txt`, and prepare a CUDA compiler and Visual Studio 2022 C++ Build Tools.
+The V2 source environment used Python 3.10.22, and the source syntax requires at least Python 3.10. The repository does not include the original `.pose_env`, model weights, ComfyUI, or Brush binary.
 
-Additional Stage 1 Python packages are listed in `src/1_suround_video/requirements.txt`. Stages 1 and 5 require a running ComfyUI instance, the corresponding video-model workflows, and their custom nodes. Exact ComfyUI, custom-node, and model versions are not defined.
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
 
-The Viewer backend uses only the Python standard library. Frontend packages are locked in `XYZ Orbit_Viewer/package-lock.json`; run `npm ci` and `npm run build`. The minimum Node.js version is not defined.
+Install FFmpeg separately and ensure `ffmpeg` is on PATH. Place these DWPose models in `src/1_360_skeleton/models/yzd-v/DWPose/`:
+
+- `yolox_l.onnx`
+- `dw-ll_ucoco_384.onnx`
+
+Stage 2 requires a reachable ComfyUI instance. The workflow references a MiniMax H3 UNet/VAE/text encoder, Pika H3 LoRA, MiniMax H3 Fun ControlNet model patch, BiRefNet, and a SAM3.1 checkpoint. Treat the two workflow JSON files as the authoritative filenames. Exact ComfyUI and custom-node versions are not defined.
+
+Stage 4 requires a Brush CLI with the flags checked by the source. If Brush is not on PATH, set:
+
+```powershell
+$env:VIDEOSPLAT_BRUSH_EXE = 'C:\path\to\brush-cli.exe'
+```
+
+No cloud API key or `.env` file is required. The default ComfyUI endpoint is `http://127.0.0.1:8188`.
 
 ## How to Use
 
-Run the following commands from the repository root. Every stage retains its own `input/` and `output/` directories.
+Run all commands from the repository root. Stage 4 reads Stage 3 output directly; the first two handoffs still require preparing the documented files.
 
-1. Put character images in `src/1_suround_video/input/`, start ComfyUI, and run `python src/1_suround_video/main.py`.
-2. Put each main video and its filename-containing-`mask` companion in `src/2_colmap/input/<group>/`, then run `python src/2_colmap/main.py`.
-3. Put the previous dataset in `src/3_360brush/input/<group>/brush_dataset_rgba_clean/`, then run `python src/3_360brush/main.py`.
-4. Put a PLY, its COLMAP text model, and registered images in `src/4_ply_ball_camera/input/` or `input/<group>/`, then run `python src/4_ply_ball_camera/run.py`.
-5. Put the Stage 4 path videos and camera paths in the expected locations under `src/5_XYZ Orbit_VideoModel/input/`. Run `python "src/5_XYZ Orbit_VideoModel/main.py" --check`, followed by `python "src/5_XYZ Orbit_VideoModel/main.py"`.
+1. Put full-body PNG/JPG/JPEG/WEBP/BMP files under `src/1_360_skeleton/input/`, then run:
 
-To use the Viewer, place the Stage 4 `path_graph.json`, `anchors/`, `paths/`, and PLY under `XYZ Orbit_Viewer/input/`. Run `npm ci` and `npm run build` in the Viewer folder, then run `python "XYZ Orbit_Viewer/app.py"` from the repository root. The default URL is `http://127.0.0.1:8000/`.
+   ```powershell
+   python -B src/1_360_skeleton/main.py
+   ```
+
+2. For each character, place Stage 1 `source_aligned.png` and `pose_control_video_175.mp4` under `src/2_suround_video/input/<group>/`, then update `INPUT_JOBS` in `src/2_suround_video/config.py`. Validate before generating:
+
+   ```powershell
+   python src/2_suround_video/main.py --check
+   python src/2_suround_video/main.py
+   ```
+
+3. Under `src/3_virtual_camera/input/<group>/`, place the Stage 2 `*_output_1_*.mp4` mask video, `*_output_2_*.mp4` RGB video, and Stage 1 `colmap/sparse/0/`, then run:
+
+   ```powershell
+   python src/3_virtual_camera/main.py
+   ```
+
+4. Stage 3 creates a validated RGBA dataset at `src/3_virtual_camera/output/<group>/brush_dataset/`. Stage 4 reads that directory by default:
+
+   ```powershell
+   python src/4_360brush/main.py
+   ```
+
+On success, Stage 4 writes the PLY and `brush.log` under `src/4_360brush/output/<group>/`. Documentation checks cannot replace execution in the target GPU, model, ComfyUI, and Brush environment.
 
 ## Configuration
 
-| Location | Settings | Effect |
+| Location | Setting | Effect |
 |---|---|---|
-| `src/1_suround_video/config.py` | ComfyUI URL, workflow model files, seed, dimensions, duration, masks, and prompt | Controls initial orbit and mask generation |
-| `src/2_colmap/core.py` `PipelineConfig` | Maximum frames, mask threshold, erosion, defringe, registration ratio, and camera arc | Controls image cleanup and COLMAP validation |
-| `VIDEOSPLAT_COLMAP` or `--colmap` | COLMAP executable or installation directory | Overrides PATH discovery |
-| `src/3_360brush/config.py` | Brush steps, splat limit, resolution, SH, alpha, growth, and batch policy | Controls initial 3DGS training |
-| `VIDEOSPLAT_BRUSH_EXE` | Brush CLI path | Overrides PATH discovery |
-| `src/4_ply_ball_camera/config.json` | Frame interval, rendering, masks, PLY scale, near/far planes, and tolerances | Controls fixed cameras and gsplat rendering |
-| `src/5_XYZ Orbit_VideoModel/config.json` | ComfyUI URL, input paths, workflow, frame counts, seed, timeout, and node IDs | Controls second-stage generation and dataset output |
-| `XYZ Orbit_Viewer/config.json` | Drag sensitivity, camera points, paths, model scale, axes, and view distance | Controls Viewer presentation |
+| `src/1_360_skeleton/config.py` | Dimensions, FPS, 175 frames, camera radius/height/target, focal length, fixed joints, DWPose switch | Controls skeleton, cameras, and Stage 1 outputs |
+| `src/2_suround_video/config.py` | ComfyUI URL, `INPUT_JOBS`, workflow, timeouts, output prefix | Controls submitted pairs and API behavior |
+| `VideoSplat_2_api.json` | Models, prompt, control, sampling, background removal, tracking, save nodes | Controls generation and dual-video output |
+| `src/3_virtual_camera/config.py` | Video globs, 175 frames, mask threshold/erosion, RGBA, ZIP, overwrite | Controls dataset building and immutable camera policy |
+| `src/4_360brush/config.py` | Stage 3 input, steps, splat cap, resolution, SH, seed, alpha, eval, export, batching | Controls the Brush training command |
+| `VIDEOSPLAT_BRUSH_EXE` | Brush executable path | Overrides PATH discovery |
+| `VIDEOSPLAT_BRUSH_INPUT_DIR` | Brush group input root | Overrides the default Stage 3 output location |
 
-The project does not require a `.env` file and contains no confirmed cloud API token. Stages 1 and 5 use the configured ComfyUI HTTP URL.
+Do not disable `REUSE_ORIGINAL_CAMERA_POSES` or enable camera estimation, optimization, or feature matching. Stage 3 treats those changes as violations of the V2 experiment invariants and stops.
 
 ## Developer Guide
 
-1. Read the five numbered stages in order, starting with each `main.py` or `run.py`, followed by its configuration file.
-2. To trace data formats, read `src/2_colmap/core.py`, `src/4_ply_ball_camera/src/source_camera.py`, `camera.py`, `pipeline.py`, and `src/5_XYZ Orbit_VideoModel/main.py`.
-3. When changing camera conventions, verify the COLMAP/OpenCV and Nerfstudio/OpenGL conversions together with W2C/C2W JSON fields.
-4. After changing Stage 4 rendering or mask logic, run `src/4_ply_ball_camera/scripts/validate_project.py` and inspect `validation.json`.
-5. When changing Stage 5 workflow node IDs, update `config.json.workflow_nodes`. After Viewer changes, run both frontend and Python tests.
+Read `src/1_360_skeleton/config.py`, `main.py`, and `dwpose_backend.py` first. Continue with the Stage 2 config, main module, and API workflow; then read the Stage 3 dataclasses, COLMAP parser, extraction, RGBA composition, and validation; finish with the Stage 4 command builder.
 
-New processing stages should preserve the existing file contracts and emit traceable metadata. Changes to camera JSON, `path_graph.json`, or `transforms.json` must be coordinated with all downstream readers.
+Preserve these contracts when modifying the source: Stage 1 frame count, image names, intrinsics, and `images.txt` order must remain aligned with Stages 2 and 3; changes to Stage 2 `SaveVideo` nodes require matching Stage 3 mask/RGB globs; COLMAP registered image names must not be silently renamed; Brush flag changes require updates to `REQUIRED_FLAGS` and version detection.
 
-## Limitations and TODO
+Extensions should add explicit configuration and validation instead of scanning arbitrary inputs. Any future automatic handoff should retain the current ability to run each stage independently and inspect intermediate artifacts. The vendored DWPose runtime has its own license and must remain distinct from any future project-level license.
 
-- A license has not been defined. Third parties cannot determine reuse rights until a LICENSE file is added.
-- End-to-end automated testing has not been defined. Existing tests cover part of the Stage 5 camera conversion and the Viewer data index, HTTP server, and path orientation.
-- Stage 3 depends on a Brush CLI build with specific flags; a compatible version and build process are not defined.
-- The Stage 4 launcher is currently Windows-specific, searches for Visual Studio 2022, and defaults `TORCH_CUDA_ARCH_LIST` to `12.0`.
-- Stage 5 writes an empty COLMAP `points3D.txt` because it reuses known camera poses and does not create fictional 3D feature points.
-- During release preparation, `npm audit` reported one high-severity advisory group for the Viewer's locked Vite 8.2.2 dependency. The available 8.3.5 fix still requires compatibility review before a separate dependency update.
+## Limitations & TODO
 
-No explicit `TODO`, `FIXME`, or `XXX` markers were found in the code. The items above are derived from the implemented entry points, configuration, validation logic, and test scope.
+- V2 has only `tests/test_rgba_handoff.py` for RGBA composition and the Stage 3 → 4 boundary; the rest of the pipeline lacks automated and end-to-end tests.
+- V2 has no Viewer. The V1 Viewer exists only in `v1.0.0`.
+- Stage 1 → 2 and Stage 2 → 3 still require manual file preparation, and Stage 2 `INPUT_JOBS` editing is manual; Stage 3 → 4 is directly connected.
+- Stage 3 requires exactly 175 frames and does not support alternate lengths or pose resampling.
+- Stage 3 exports RGBA plus separate masks. The conversion has offline tests but still requires end-to-end validation with actual ComfyUI output and the target Brush environment.
+- DWPose, ComfyUI, and Brush depend on external models/binaries without one reproducible environment lockfile.
+- `points3D.txt` may be empty, causing Brush to use random initialization.
+- The repository has no project-level LICENSE; only vendored dependencies carry their own licenses.
+- Project-owned Python/JSON files contain no `TODO`, `FIXME`, `XXX`, or `NotImplemented` marker. The verifiable incomplete scope is listed above.
 
 ## Notes
 
-The research plan frames this pipeline as generated multi-view video combined with conventional 3D reconstruction. Planned comparisons with direct Image-to-3D approaches include multi-view consistency, geometric accuracy, appearance preservation, reconstruction quality, computational cost, and editability. Comparative experiments, Gaussian-to-Mesh conversion, rigging, and character animation validation are not implemented in the main repository pipeline.
+`3_virtual_camera` is the original V2 directory name. Its implementation copies and validates the Stage 1 COLMAP text model; it does not invoke COLMAP mapping, estimate poses, or create fictional 3D points.
 
-The original research document, other character images, model weights, full PLY files, COLMAP databases, Brush training outputs, and large experiment artifacts are not included. The character 2 assets in this README are resized and compressed copies for GitHub viewing; they are not training inputs or complete model files.
+The V2 source directory contained a `.pose_env`, ONNX models, input images, generated videos, ZIPs, a PLY, logs, and Brush target data. Those local runtime artifacts are not versioned. The only V2 demo committed here is a reduced GIF, PNG, and MP4 derived from the actual Stage 1 `default` skeleton output. V1 source and root READMEs are available from `v1.0.0`, with readable snapshots under `docs/versions/` on the main branch.

@@ -1,0 +1,626 @@
+{
+  "119": {
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "載入 VAE"
+    }
+  },
+  "122": {
+    "inputs": {
+      "samples": [
+        "125",
+        0
+      ],
+      "vae": [
+        "119",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE 解碼"
+    }
+  },
+  "123": {
+    "inputs": {
+      "sampler_name": "lcm"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "K採樣器選擇"
+    }
+  },
+  "125": {
+    "inputs": {
+      "noise": [
+        "129",
+        0
+      ],
+      "guider": [
+        "126",
+        0
+      ],
+      "sampler": [
+        "123",
+        0
+      ],
+      "sigmas": [
+        "735",
+        0
+      ],
+      "latent_image": [
+        "136",
+        1
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "126": {
+    "inputs": {
+      "model": [
+        "751",
+        0
+      ],
+      "conditioning": [
+        "136",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "基礎引導器"
+    }
+  },
+  "127": {
+    "inputs": {
+      "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "載入擴散模型"
+    }
+  },
+  "128": {
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "type": "minimax",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "載入 CLIP"
+    }
+  },
+  "129": {
+    "inputs": {
+      "noise_seed": 899683009583827
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "隨機雜訊"
+    }
+  },
+  "130": {
+    "inputs": {
+      "fps": 24,
+      "bit_depth": "auto",
+      "color_space": "sRGB",
+      "codec": "none",
+      "images": [
+        "122",
+        0
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "建立影片"
+    }
+  },
+  "131": {
+    "inputs": {
+      "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17",
+      "values.a": [
+        "132",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "數學運算式"
+    }
+  },
+  "132": {
+    "inputs": {
+      "value": 7.1
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "Float (Duration)"
+    }
+  },
+  "136": {
+    "inputs": {
+      "prompt": [
+        "138",
+        0
+      ],
+      "width": [
+        "720",
+        0
+      ],
+      "height": [
+        "720",
+        1
+      ],
+      "length": [
+        "131",
+        1
+      ],
+      "ref_image_size": "match",
+      "clip": [
+        "128",
+        0
+      ],
+      "vae": [
+        "119",
+        0
+      ],
+      "ref_images.ref_image_0": [
+        "718",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3ReferenceToVideo",
+    "_meta": {
+      "title": "MiniMax H3 參考轉影片"
+    }
+  },
+  "138": {
+    "inputs": {
+      "value": "Use the supplied reference image as the exact character identity and appearance.\n\nA single character stands perfectly still in a neutral standing pose throughout the entire video. Preserve the exact facial identity, hairstyle, clothing, body proportions, textures, silhouette, and accessories of the reference character.\n\nFollow the supplied pose control video frame by frame. The character's joints, body position, limb orientation, scale, and framing should closely match the pose guidance at every frame.\n\nThe camera performs one smooth, continuous 360-degree horizontal orbit around the stationary character. Begin at the front view, smoothly transition through the side view, reach the back view at the midpoint, continue through the opposite side view, and return to the front view at the end.\n\nConstant camera height, distance, focal length, lighting, and framing. The character remains centered and fully visible.\n\nThe character does not rotate, walk, move, gesture, or change pose. No cuts, no zoom, no camera shake, no anatomical deformation, no identity changes, no clothing changes, no background changes.\n\nAudio: Silence."
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "Input Text (Prompt)"
+    }
+  },
+  "145": {
+    "inputs": {
+      "lora_name": "pika_h3_flex_ref2va_comfy_bf16.safetensors",
+      "strength_model": 1,
+      "model": [
+        "127",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoraLoaderModelOnly"
+    }
+  },
+  "172": {
+    "inputs": {
+      "strength": 1,
+      "start_percent": 0,
+      "end_percent": 1,
+      "model": [
+        "145",
+        0
+      ],
+      "model_patch": [
+        "173",
+        0
+      ],
+      "vae": [
+        "119",
+        0
+      ],
+      "control_video": [
+        "704",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3FunControlNetApply",
+    "_meta": {
+      "title": "套用 MiniMax H3 Fun ControlNet"
+    }
+  },
+  "173": {
+    "inputs": {
+      "name": "minimax_h3_fun_controlnet_union_pruned_int8_convrot.safetensors"
+    },
+    "class_type": "ModelPatchLoader",
+    "_meta": {
+      "title": "模型修補載入器"
+    }
+  },
+  "174": {
+    "inputs": {
+      "file": "pose_control_video_175 (1).mp4",
+      "video-preview": ""
+    },
+    "class_type": "LoadVideo",
+    "_meta": {
+      "title": "Load Video  (Control Video)"
+    }
+  },
+  "704": {
+    "inputs": {
+      "images": [
+        "709",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "預覽圖片"
+    }
+  },
+  "705": {
+    "inputs": {
+      "start_time": 0,
+      "duration": 0,
+      "strict_duration": false,
+      "video": [
+        "174",
+        0
+      ]
+    },
+    "class_type": "Video Slice",
+    "_meta": {
+      "title": "影片切片"
+    }
+  },
+  "709": {
+    "inputs": {
+      "video": [
+        "705",
+        0
+      ]
+    },
+    "class_type": "GetVideoComponents",
+    "_meta": {
+      "title": "取得影片元件"
+    }
+  },
+  "712": {
+    "inputs": {
+      "value": false
+    },
+    "class_type": "PrimitiveBoolean",
+    "_meta": {
+      "title": "Boolean (Enable Lightning LoRA)"
+    }
+  },
+  "718": {
+    "inputs": {
+      "image": "front_black (1).png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "載入圖片"
+    }
+  },
+  "720": {
+    "inputs": {
+      "image": [
+        "719:23",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "取得圖片尺寸"
+    }
+  },
+  "722": {
+    "inputs": {
+      "model": "BiRefNet-general",
+      "sensitivity": 0,
+      "mask_blur": 0,
+      "mask_offset": false,
+      "invert_output": false,
+      "refine_foreground": "Alpha",
+      "background": "Alpha",
+      "background_color": "#222222",
+      "image": [
+        "723",
+        0
+      ]
+    },
+    "class_type": "BiRefNetRMBG",
+    "_meta": {
+      "title": "BiRefNet (RMBG)"
+    }
+  },
+  "723": {
+    "inputs": {
+      "batch_index": 0,
+      "length": 1,
+      "image": [
+        "122",
+        0
+      ]
+    },
+    "class_type": "ImageFromBatch",
+    "_meta": {
+      "title": "從批次擷取影像"
+    }
+  },
+  "724": {
+    "inputs": {
+      "images": [
+        "722",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "預覽圖片"
+    }
+  },
+  "725": {
+    "inputs": {
+      "mask": [
+        "722",
+        1
+      ]
+    },
+    "class_type": "MaskToImage",
+    "_meta": {
+      "title": "將遮罩轉換為影像"
+    }
+  },
+  "726": {
+    "inputs": {
+      "ckpt_name": "sam3.1_multiplex_fp16.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "載入檢查點"
+    }
+  },
+  "727": {
+    "inputs": {
+      "detection_threshold": 0.5,
+      "max_objects": 4,
+      "detect_interval": 1,
+      "images": [
+        "122",
+        0
+      ],
+      "model": [
+        "726",
+        0
+      ],
+      "initial_mask": [
+        "722",
+        1
+      ]
+    },
+    "class_type": "SAM3_VideoTrack",
+    "_meta": {
+      "title": "SAM3 影片追蹤"
+    }
+  },
+  "728": {
+    "inputs": {
+      "object_indices": "",
+      "track_data": [
+        "727",
+        0
+      ]
+    },
+    "class_type": "SAM3_TrackToMask",
+    "_meta": {
+      "title": "SAM3 追蹤轉 mask"
+    }
+  },
+  "729": {
+    "inputs": {
+      "images": [
+        "725",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "預覽圖片"
+    }
+  },
+  "730": {
+    "inputs": {
+      "mask": [
+        "728",
+        0
+      ]
+    },
+    "class_type": "MaskToImage",
+    "_meta": {
+      "title": "將遮罩轉換為影像"
+    }
+  },
+  "731": {
+    "inputs": {
+      "fps": 24,
+      "bit_depth": "auto",
+      "color_space": "sRGB",
+      "codec": "none",
+      "images": [
+        "730",
+        0
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "建立影片"
+    }
+  },
+  "732": {
+    "inputs": {
+      "filename_prefix": "video/ComfyUI",
+      "format": "auto",
+      "format.codec": "auto",
+      "codec": "auto",
+      "video": [
+        "731",
+        0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "儲存影片"
+    }
+  },
+  "734": {
+    "inputs": {
+      "filename_prefix": "video/VideoSplat",
+      "format": "auto",
+      "format.codec": "auto",
+      "codec": "auto",
+      "video": [
+        "130",
+        0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "儲存影片"
+    }
+  },
+  "735": {
+    "inputs": {
+      "sigmas": "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
+    },
+    "class_type": "ManualSigmas",
+    "_meta": {
+      "title": "手動 Sigma"
+    }
+  },
+  "750": {
+    "inputs": {
+      "selection": "sol-attn",
+      "selection.tau": 1,
+      "start_percent": 0.2,
+      "end_percent": 0.9,
+      "dense_blocks": "",
+      "min_tokens": 12288,
+      "extra_tokens": 256,
+      "sink_conditioning": "exact_kv_and_rows",
+      "verbose": false,
+      "model": [
+        "172",
+        0
+      ]
+    },
+    "class_type": "BlockSparseAttention",
+    "_meta": {
+      "title": "模型區塊稀疏注意力"
+    }
+  },
+  "751": {
+    "inputs": {
+      "fused_qkv": "auto",
+      "mlp_memory": "auto",
+      "chunk_rows": 4096,
+      "preserve_precision": true,
+      "precision_mode": "Auto",
+      "qkv_streaming_mode": "Auto",
+      "embedding_memory_mode": "Auto",
+      "kitchen_v_memory_mode": "Standard",
+      "model": [
+        "750",
+        0
+      ]
+    },
+    "class_type": "H3MemoryOptimization",
+    "_meta": {
+      "title": "H3 Memory Optimization"
+    }
+  },
+  "719:24": {
+    "inputs": {
+      "image": [
+        "718",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "取得圖片尺寸"
+    }
+  },
+  "719:25": {
+    "inputs": {
+      "expression": "round(a*b/32)*32",
+      "values.a": [
+        "719:24",
+        0
+      ],
+      "values.b": [
+        "719:27",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "數學運算式"
+    }
+  },
+  "719:27": {
+    "inputs": {
+      "value": 0.7
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "浮點數"
+    }
+  },
+  "719:26": {
+    "inputs": {
+      "expression": "round(a*b/32)*32",
+      "values.a": [
+        "719:24",
+        1
+      ],
+      "values.b": [
+        "719:27",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "數學運算式"
+    }
+  },
+  "719:23": {
+    "inputs": {
+      "resize_type": "scale dimensions",
+      "resize_type.width": [
+        "719:25",
+        1
+      ],
+      "resize_type.height": [
+        "719:26",
+        1
+      ],
+      "resize_type.crop": "center",
+      "scale_method": "area",
+      "input": [
+        "718",
+        0
+      ]
+    },
+    "class_type": "ResizeImageMaskNode",
+    "_meta": {
+      "title": "調整影像／遮罩大小"
+    }
+  }
+}

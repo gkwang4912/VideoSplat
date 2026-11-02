@@ -1,0 +1,23 @@
+torch
+importlib_metadata; python_version < "3.8"
+huggingface_hub
+scipy
+opencv-python
+filelock
+numpy
+Pillow
+einops
+torchvision
+pyyaml
+scikit-image
+python-dateutil
+mediapipe>=0.8.0
+omegaconf
+addict
+yacs
+trimesh
+rtree
+albumentationsx
+scikit-learn
+matplotlib
+onnxruntime-gpu; (platform_system == "Windows" or platform_system == "Linux") and (platform_machine == "AMD64" or platform_machine == "x86_64")

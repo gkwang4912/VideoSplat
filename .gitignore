@@ -8,6 +8,8 @@ __pycache__/
 htmlcov/
 .venv/
 venv/
+**/.pose_env/
+**/.conda/
 
 # Node.js and frontend build output
 node_modules/
@@ -22,6 +24,8 @@ XYZ Orbit_Viewer/frontend/dist/
 **/brush.log
 *.log
 **/target/
+**/models/*
+!**/models/README.md
 
 # Large runtime media and model artifacts
 *.mp4
@@ -42,9 +46,15 @@ XYZ Orbit_Viewer/frontend/dist/
 *.pickle
 *.sqlite
 *.sqlite3
+*.onnx
+*.zip
+*.whl
+*.exe
+*.dll
 
 # README demo media is intentionally versioned
 !docs/assets/demo/*.mp4
+!docs/assets/demo/v2/*.mp4
 
 # Local editor and OS files
 .vscode/
