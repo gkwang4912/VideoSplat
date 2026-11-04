@@ -12,7 +12,9 @@ The camera trajectory is defined before synthesis. Skeleton frames, generated RG
 
 ### Looping previews
 
-All three embedded assets are animated GIF files. Their animation metadata has been checked: each contains multiple frames and sets `loop=0` for continuous repetition in GIF-capable Markdown viewers. MP4 files are provided separately.
+All three previews directly embed animated GIF files with infinite looping (`loop=0`). Each image and its caption share one link; clicking opens the original GIF. Full MP4 versions are listed separately below.
+
+The skeleton GIF is generated from `src/4_virtual_camera/input/4/pose_control_video_175.mp4`; the published skeleton MP4 is an exact copy of that source.
 
 <table>
   <tr>
@@ -21,15 +23,15 @@ All three embedded assets are animated GIF files. Their animation metadata has b
     <th>Gaussian render</th>
   </tr>
   <tr>
-    <td><img src="docs/assets/demo/v2/pose_control_video_175.gif" width="260" alt="Looping skeleton control GIF"></td>
-    <td><img src="docs/assets/demo/v2/generated_character_video.gif" width="260" alt="Looping generated character GIF"></td>
-    <td><img src="docs/assets/demo/v2/gaussian_model_orbit.gif" width="260" alt="Looping Gaussian GIF using original cameras"></td>
+    <td><a href="docs/assets/demo/v2/pose_control_video_175.gif"><img src="docs/assets/demo/v2/pose_control_video_175.gif" width="260" alt="Looping skeleton control GIF"><br><sub>Skeleton control GIF</sub></a></td>
+    <td><a href="docs/assets/demo/v2/generated_character_video.gif"><img src="docs/assets/demo/v2/generated_character_video.gif" width="260" alt="Looping generated character GIF"><br><sub>Generated character GIF</sub></a></td>
+    <td><a href="docs/assets/demo/v2/gaussian_model_orbit.gif"><img src="docs/assets/demo/v2/gaussian_model_orbit.gif" width="260" alt="Looping Gaussian GIF using original cameras"><br><sub>Original-camera Gaussian GIF</sub></a></td>
   </tr>
 </table>
 
 | Asset | GIF | MP4 |
 |---|---|---|
-| Skeleton | 240×427, 88 animation frames | [720×1280, 175 frames, 24 FPS](docs/assets/demo/v2/pose_control_video_175.mp4) |
+| Skeleton | 320×569, 175 animation frames | [720×1280, 175 frames, 24 FPS](docs/assets/demo/v2/pose_control_video_175.mp4) |
 | Character | 320×560, 88 animation frames | [512×896, 175 frames, 24 FPS](docs/assets/demo/v2/generated_character_video.mp4) |
 | Gaussian model | 384×683, 175 animation frames | [1080×1920, 175 frames, 24 FPS](docs/assets/demo/v2/gaussian_model_orbit.mp4) |
 

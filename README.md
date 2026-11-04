@@ -12,7 +12,9 @@ VideoSplat 把一張全身角色圖轉成可供 Gaussian Splatting 訓練的多�
 
 ### 循環預覽
 
-三個內嵌預覽都是實際 GIF 動畫，已檢查動畫資訊的 `loop=0`，支援 GIF 的 Markdown 閱讀器會持續循環。MP4 僅作為另開觀看的連結。
+三個預覽均直接嵌入 GIF 動畫，並設定無限循環（`loop=0`）。每張圖片與下方圖說共用一個連結；點擊可開啟原始 GIF，完整 MP4 另列於下表。
+
+骨架預覽由 `src/4_virtual_camera/input/4/pose_control_video_175.mp4` 轉出，展示用 MP4 也使用這個來源的完整副本。
 
 <table>
   <tr>
@@ -21,15 +23,15 @@ VideoSplat 把一張全身角色圖轉成可供 Gaussian Splatting 訓練的多�
     <th>高斯模型／Gaussian render</th>
   </tr>
   <tr>
-    <td><img src="docs/assets/demo/v2/pose_control_video_175.gif" width="260" alt="循環播放的骨架控制 GIF"></td>
-    <td><img src="docs/assets/demo/v2/generated_character_video.gif" width="260" alt="循環播放的角色生成 GIF"></td>
-    <td><img src="docs/assets/demo/v2/gaussian_model_orbit.gif" width="260" alt="沿原始相機渲染的高斯模型循環 GIF"></td>
+    <td><a href="docs/assets/demo/v2/pose_control_video_175.gif"><img src="docs/assets/demo/v2/pose_control_video_175.gif" width="260" alt="循環播放的骨架控制 GIF"><br><sub>骨架控制 GIF</sub></a></td>
+    <td><a href="docs/assets/demo/v2/generated_character_video.gif"><img src="docs/assets/demo/v2/generated_character_video.gif" width="260" alt="循環播放的角色生成 GIF"><br><sub>生成角色 GIF</sub></a></td>
+    <td><a href="docs/assets/demo/v2/gaussian_model_orbit.gif"><img src="docs/assets/demo/v2/gaussian_model_orbit.gif" width="260" alt="沿原始相機渲染的高斯模型循環 GIF"><br><sub>原始相機高斯渲染 GIF</sub></a></td>
   </tr>
 </table>
 
 | 素材 | GIF 規格 | 對應 MP4 |
 |---|---|---|
-| 骨架控制 | 240×427，88 個動畫影格 | [720×1280，175 幀，24 FPS](docs/assets/demo/v2/pose_control_video_175.mp4) |
+| 骨架控制 | 320×569，175 個動畫影格 | [720×1280，175 幀，24 FPS](docs/assets/demo/v2/pose_control_video_175.mp4) |
 | 生成角色 | 320×560，88 個動畫影格 | [512×896，175 幀，24 FPS](docs/assets/demo/v2/generated_character_video.mp4) |
 | Gaussian 模型 | 384×683，175 個動畫影格 | [1080×1920，175 幀，24 FPS](docs/assets/demo/v2/gaussian_model_orbit.mp4) |
 
