@@ -15,13 +15,13 @@ The camera trajectory is defined before synthesis. Skeleton frames, generated RG
 <table>
   <tr>
     <th>Skeleton control</th>
-    <th>Legacy character</th>
-    <th>Legacy Gaussian render</th>
+    <th>Character</th>
+    <th>Gaussian render</th>
   </tr>
   <tr>
     <td><img src="docs/assets/demo/v2/pose_control_video_175.gif" width="260" alt="Skeleton control GIF"></td>
-    <td><img src="docs/assets/demo/character-2-orbit.gif" width="260" alt="Legacy character 2 orbit GIF"></td>
-    <td><img src="docs/assets/demo/character-2-3d.gif" width="260" alt="Legacy character 2 Gaussian render GIF"></td>
+    <td><img src="docs/assets/demo/character-2-orbit.gif" width="260" alt="character orbit GIF"></td>
+    <td><img src="docs/assets/demo/character-2-3d.gif" width="260" alt="character Gaussian render GIF"></td>
   </tr>
 </table>
 

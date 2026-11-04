@@ -15,13 +15,13 @@ VideoSplat 把一張全身角色圖轉成可供 Gaussian Splatting 訓練的多�
 <table>
   <tr>
     <th>骨架控制／Skeleton control</th>
-    <th>歷史角色展示／Legacy character</th>
-    <th>歷史高斯展示／Legacy Gaussian render</th>
+    <th>角色展示／Legacy character</th>
+    <th>高斯展示／Legacy Gaussian render</th>
   </tr>
   <tr>
     <td><img src="docs/assets/demo/v2/pose_control_video_175.gif" width="260" alt="骨架控制 GIF"></td>
-    <td><img src="docs/assets/demo/character-2-orbit.gif" width="260" alt="角色 2 的歷史環繞展示 GIF"></td>
-    <td><img src="docs/assets/demo/character-2-3d.gif" width="260" alt="角色 2 的歷史 3DGS 模型渲染 GIF"></td>
+    <td><img src="docs/assets/demo/character-2-orbit.gif" width="260" alt="角色 2 的環繞展示 GIF"></td>
+    <td><img src="docs/assets/demo/character-2-3d.gif" width="260" alt="角色 2 的 3DGS 模型渲染 GIF"></td>
   </tr>
 </table>
 
