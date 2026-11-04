@@ -12,30 +12,30 @@ The camera trajectory is defined before synthesis. Skeleton frames, generated RG
 
 ### Looping previews
 
-All three previews directly embed animated GIF files with infinite looping (`loop=0`). Each image and its caption share one link; clicking opens the original GIF. Full MP4 versions are listed separately below.
+The previews embed GIF images directly, without additional link wrappers. All three files use infinite looping (`loop=0`). Full MP4 versions are listed separately below.
 
 The skeleton GIF is generated from `src/4_virtual_camera/input/4/pose_control_video_175.mp4`; the published skeleton MP4 is an exact copy of that source.
 
 <table>
   <tr>
     <th>Skeleton control</th>
-    <th>Generated character</th>
-    <th>Gaussian render</th>
+    <th>Legacy character</th>
+    <th>Legacy Gaussian render</th>
   </tr>
   <tr>
-    <td><a href="docs/assets/demo/v2/pose_control_video_175.gif"><img src="docs/assets/demo/v2/pose_control_video_175.gif" width="260" alt="Looping skeleton control GIF"><br><sub>Skeleton control GIF</sub></a></td>
-    <td><a href="docs/assets/demo/v2/generated_character_video.gif"><img src="docs/assets/demo/v2/generated_character_video.gif" width="260" alt="Looping generated character GIF"><br><sub>Generated character GIF</sub></a></td>
-    <td><a href="docs/assets/demo/v2/gaussian_model_orbit.gif"><img src="docs/assets/demo/v2/gaussian_model_orbit.gif" width="260" alt="Looping Gaussian GIF using original cameras"><br><sub>Original-camera Gaussian GIF</sub></a></td>
+    <td><img src="docs/assets/demo/v2/pose_control_video_175.gif" width="260" alt="Skeleton control GIF"></td>
+    <td><img src="docs/assets/demo/character-2-orbit.gif" width="260" alt="Legacy character 2 orbit GIF"></td>
+    <td><img src="docs/assets/demo/character-2-3d.gif" width="260" alt="Legacy character 2 Gaussian render GIF"></td>
   </tr>
 </table>
 
 | Asset | GIF | MP4 |
 |---|---|---|
 | Skeleton | 320×569, 175 animation frames | [720×1280, 175 frames, 24 FPS](docs/assets/demo/v2/pose_control_video_175.mp4) |
-| Character | 320×560, 88 animation frames | [512×896, 175 frames, 24 FPS](docs/assets/demo/v2/generated_character_video.mp4) |
-| Gaussian model | 384×683, 175 animation frames | [1080×1920, 175 frames, 24 FPS](docs/assets/demo/v2/gaussian_model_orbit.mp4) |
+| Legacy character | 320×674, 64 animation frames | [608×1280, 192 frames, 24 FPS](docs/assets/demo/character-2-orbit.mp4) |
+| Legacy Gaussian render | 320×674, 60 animation frames | [608×1280, 361 frames, 30 FPS](docs/assets/demo/character-2-3d.mp4) |
 
-The model preview renders all 60,507 Gaussians from `src/5_360brush/output/4/4.ply` using `tools/render_gaussian_reference.py`. It follows the 175 COLMAP cameras in that character's training dataset, preserving positions, rotations, and file order while scaling intrinsics to the output resolution. GIF thumbnails have their own resolution and frame counts.
+The second and third columns reuse the original character 2 demonstrations in `docs/assets/demo/`; they are not generation or reconstruction results for the current character 4. The skeleton column retains character 4's control video described above. GIF thumbnail dimensions and frame counts do not define the current training data contract.
 
 ## Architecture Overview
 
