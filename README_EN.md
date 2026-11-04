@@ -10,11 +10,7 @@ VideoSplat converts a full-body character image into generated views, a camera-a
 
 The camera trajectory is defined before synthesis. Skeleton frames, generated RGB, masks, and camera records are paired by frame order rather than estimating a new trajectory from generated images. This local research toolchain serves engineers and researchers inspecting controlled video generation and known-pose 3D reconstruction.
 
-### Looping previews
-
-The previews embed GIF images directly, without additional link wrappers. All three files use infinite looping (`loop=0`). Full MP4 versions are listed separately below.
-
-The skeleton GIF is generated from `src/4_virtual_camera/input/4/pose_control_video_175.mp4`; the published skeleton MP4 is an exact copy of that source.
+### Preview
 
 <table>
   <tr>
@@ -28,14 +24,6 @@ The skeleton GIF is generated from `src/4_virtual_camera/input/4/pose_control_vi
     <td><img src="docs/assets/demo/character-2-3d.gif" width="260" alt="Legacy character 2 Gaussian render GIF"></td>
   </tr>
 </table>
-
-| Asset | GIF | MP4 |
-|---|---|---|
-| Skeleton | 320×569, 175 animation frames | [720×1280, 175 frames, 24 FPS](docs/assets/demo/v2/pose_control_video_175.mp4) |
-| Legacy character | 320×674, 64 animation frames | [608×1280, 192 frames, 24 FPS](docs/assets/demo/character-2-orbit.mp4) |
-| Legacy Gaussian render | 320×674, 60 animation frames | [608×1280, 361 frames, 30 FPS](docs/assets/demo/character-2-3d.mp4) |
-
-The second and third columns reuse the original character 2 demonstrations in `docs/assets/demo/`; they are not generation or reconstruction results for the current character 4. The skeleton column retains character 4's control video described above. GIF thumbnail dimensions and frame counts do not define the current training data contract.
 
 ## Architecture Overview
 
@@ -60,8 +48,6 @@ flowchart TB
     R --> V["PNG frames and MP4"]
 ```
 
-Cross-stage arrows represent file handoffs that users prepare. No pipeline controller transfers these outputs automatically. Stage 5 specifically reads its own `input/`, not Stage 4's output directory.
-
 | Handoff | Required artifacts |
 |---|---|
 | 1 → 2 | Aligned image and skeleton video under fixed filenames in each immediate character folder |
@@ -71,6 +57,8 @@ Cross-stage arrows represent file handoffs that users prepare. No pipeline contr
 | 5 → renderer | Explicit PLY and original COLMAP paths |
 
 ## System Flow
+
+The complete processing sequence is:
 
 1. Stage 1 always creates the fixed `default` skeleton, then recursively processes character images. It aligns foregrounds, uses DWPose where available, and fills missing joints using silhouette estimates. Initialization or detection errors fall back to silhouette estimation.
 2. Stage 2 discovers immediate child folders containing both `source_aligned.png` and `pose_control_video_175.mp4`. It validates server node classes, uploads inputs, queues a prompt, polls history, and downloads RGB video. Its current API workflow has one `SaveVideo` node.
