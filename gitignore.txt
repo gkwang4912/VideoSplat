@@ -1,0 +1,81 @@
+# VideoSplat - Git tracking rules
+# Source code, ComfyUI workflows (*.json), configs, docs and web assets
+# remain trackable by default unless they match a rule below.
+
+# Python environments, caches and test output
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+**/.pose_env/
+**/.conda/
+
+# Node.js dependencies and built frontend assets
+node_modules/
+XYZ Orbit_Viewer/frontend/dist/
+
+# Runtime input/output: generated images, frames, PLYs and intermediate data
+**/input/
+**/output/
+**/outputs/
+**/target/
+**/batch_report.json
+**/history.json
+**/brush.log
+*.log
+
+# Downloaded local models; allow explanatory README files
+**/models/*
+!**/models/README.md
+
+# Large generated videos, Gaussian splats, databases and AI model weights
+*.mp4
+*.mov
+*.mkv
+*.avi
+*.webm
+*.ply
+*.db
+*.bin
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.npy
+*.npz
+*.pkl
+*.pickle
+*.sqlite
+*.sqlite3
+*.onnx
+*.zip
+*.whl
+*.exe
+*.dll
+
+# README/GitHub showcase videos are deliberately versioned
+!docs/assets/demo/*.mp4
+!docs/assets/demo/v2/*.mp4
+
+# Local IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.secret
+*.secrets
+secrets.*
+credentials*.json
+config.local.*
+*.pem
+*.key
