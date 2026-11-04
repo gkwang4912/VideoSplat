@@ -25,13 +25,6 @@ VideoSplat 把一張全身角色圖轉成可供 Gaussian Splatting 訓練的多�
   </tr>
 </table>
 
-| 素材 | GIF 規格 | 對應 MP4 |
-|---|---|---|
-| 骨架控制 | 320×569，175 個動畫影格 | [720×1280，175 幀，24 FPS](docs/assets/demo/v2/pose_control_video_175.mp4) |
-| 歷史角色展示 | 320×674，64 個動畫影格 | [608×1280，192 幀，24 FPS](docs/assets/demo/character-2-orbit.mp4) |
-| 歷史 Gaussian 展示 | 320×674，60 個動畫影格 | [608×1280，361 幀，30 FPS](docs/assets/demo/character-2-3d.mp4) |
-
-第二、三欄使用 `docs/assets/demo/` 原有的角色 2 展示，不是目前角色 4 的生成或重建結果。骨架欄繼續使用上述角色 4 的控制影片。GIF 是展示用縮圖，其幀數與解析度不代表現行訓練資料規格。
 
 ## 系統架構說明（Architecture Overview）
 
