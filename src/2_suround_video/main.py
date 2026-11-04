@@ -1,6 +1,6 @@
 """Submit or validate the local ComfyUI workflow.
 
-Submit every configured input job:
+Submit every discovered input job:
     python main.py
 
 Validate only (does not generate):
@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
 import mimetypes
 import sys
@@ -92,46 +93,37 @@ def load_workflow() -> dict[str, Any]:
 def discover_jobs() -> list[Job]:
     if not config.INPUT_DIR.is_dir():
         raise RuntimeError(f"找不到 input 資料夾：{config.INPUT_DIR}")
-    input_root = config.INPUT_DIR.resolve()
-    configured_jobs = getattr(config, "INPUT_JOBS", None)
-    if not isinstance(configured_jobs, list) or not configured_jobs:
-        raise RuntimeError("config.py 的 INPUT_JOBS 必須至少設定一組輸入。")
-
-    def resolve_input(relative_path: object, label: str) -> Path:
-        if not isinstance(relative_path, str) or not relative_path.strip():
-            raise RuntimeError(f"{label} 必須是相對於 input 的非空路徑字串。")
-        configured_path = Path(relative_path)
-        if configured_path.is_absolute():
-            raise RuntimeError(f"{label} 不可使用絕對路徑：{relative_path}")
-        resolved = (input_root / configured_path).resolve()
-        if not resolved.is_relative_to(input_root):
-            raise RuntimeError(f"{label} 不可指向 input 資料夾外：{relative_path}")
-        if not resolved.is_file():
-            raise RuntimeError(f"{label} 找不到檔案：input/{relative_path}")
-        return resolved
+    image_filename = getattr(config, "INPUT_IMAGE_FILENAME", "")
+    video_filename = getattr(config, "INPUT_VIDEO_FILENAME", "")
+    if not isinstance(image_filename, str) or Path(image_filename).name != image_filename:
+        raise RuntimeError("config.py 的 INPUT_IMAGE_FILENAME 必須是單一檔名。")
+    if not isinstance(video_filename, str) or Path(video_filename).name != video_filename:
+        raise RuntimeError("config.py 的 INPUT_VIDEO_FILENAME 必須是單一檔名。")
 
     jobs: list[Job] = []
-    names: set[str] = set()
-    for index, item in enumerate(configured_jobs, start=1):
-        if not isinstance(item, dict):
-            raise RuntimeError(f"INPUT_JOBS 第 {index} 組必須是字典設定。")
-        name = item.get("name")
-        if not isinstance(name, str) or not name.strip():
-            raise RuntimeError(f"INPUT_JOBS 第 {index} 組缺少有效的 name。")
-        name = name.strip()
-        if name in names:
-            raise RuntimeError(f"INPUT_JOBS 的 name 不可重複：{name}")
-        if Path(name).name != name:
-            raise RuntimeError(f"INPUT_JOBS 的 name 不可包含路徑字元：{name}")
+    incomplete: list[str] = []
+    folders = sorted(
+        (path for path in config.INPUT_DIR.iterdir() if path.is_dir()),
+        key=lambda path: path.name.casefold(),
+    )
+    for folder in folders:
+        image = folder / image_filename
+        video = folder / video_filename
+        has_image = image.is_file()
+        has_video = video.is_file()
+        if has_image and has_video:
+            jobs.append(Job(name=folder.name, image=image, video=video))
+        elif has_image or has_video:
+            missing = video_filename if has_image else image_filename
+            incomplete.append(f"input/{folder.name} 缺少 {missing}")
 
-        image = resolve_input(item.get("image"), f"INPUT_JOBS[{index}] image")
-        video = resolve_input(item.get("video"), f"INPUT_JOBS[{index}] video")
-        if image.suffix.lower() not in config.IMAGE_EXTENSIONS:
-            raise RuntimeError(f"指定的圖片副檔名不支援：{image.name}")
-        if video.suffix.lower() not in config.VIDEO_EXTENSIONS:
-            raise RuntimeError(f"指定的影片副檔名不支援：{video.name}")
-        names.add(name)
-        jobs.append(Job(name=name, image=image, video=video))
+    if incomplete:
+        raise RuntimeError("輸入資料不完整：\n" + "\n".join(incomplete))
+    if not jobs:
+        raise RuntimeError(
+            "input 內找不到完整工作；每個子資料夾需同時包含 "
+            f"{image_filename} 與 {video_filename}。"
+        )
     return jobs
 
 
@@ -286,17 +278,58 @@ def unique_destination(folder: Path, filename: str) -> Path:
         index += 1
 
 
-def job_is_complete(job: Job, expected_output_count: int) -> bool:
-    """Return True only when every expected numbered output already exists."""
+def file_digest(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as file:
+        while chunk := file.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def job_signature(workflow: dict[str, Any], job: Job) -> str:
+    digest = hashlib.sha256()
+    digest.update(
+        json.dumps(workflow, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    )
+    digest.update(file_digest(job.image).encode("ascii"))
+    digest.update(file_digest(job.video).encode("ascii"))
+    return digest.hexdigest()
+
+
+def completion_marker(job: Job) -> Path:
+    return config.OUTPUT_DIR / job.name / ".completed.json"
+
+
+def job_is_complete(job: Job, signature: str) -> bool:
+    """Return True only for the same workflow and unchanged input files."""
     job_output_dir = config.OUTPUT_DIR / job.name
-    if not job_output_dir.is_dir():
+    marker = completion_marker(job)
+    if not marker.is_file():
         return False
-    prefix = Path(config.OUTPUT_PREFIX).name
-    for output_index in range(1, expected_output_count + 1):
-        pattern = f"{prefix}_{job.name}_output_{output_index}_*"
-        if not any(path.is_file() for path in job_output_dir.glob(pattern)):
-            return False
-    return True
+    try:
+        record = json.loads(marker.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if record.get("signature") != signature:
+        return False
+    output_names = record.get("outputs")
+    return bool(output_names) and all(
+        isinstance(name, str) and (job_output_dir / name).is_file()
+        for name in output_names
+    )
+
+
+def mark_job_complete(job: Job, signature: str, saved: list[Path]) -> None:
+    marker = completion_marker(job)
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    record = {
+        "signature": signature,
+        "outputs": [path.name for path in saved],
+    }
+    marker.write_text(
+        json.dumps(record, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
 
 def download_outputs(
@@ -332,11 +365,11 @@ def main() -> int:
         workflow = load_workflow()
         jobs = discover_jobs()
         required_classes = validate_workflow(workflow)
-        expected_output_count = len(workflow_nodes(workflow, "SaveVideo"))
         check_server(required_classes)
         print(f"驗證通過：ComfyUI 可連線，節點完整，共找到 {len(jobs)} 組輸入。")
+        signatures = {job.name: job_signature(workflow, job) for job in jobs}
         for job in jobs:
-            state = "已完成，將跳過" if job_is_complete(job, expected_output_count) else "待處理"
+            state = "已完成，將跳過" if job_is_complete(job, signatures[job.name]) else "待處理"
             print(f"  - {job.name}: {job.image.name} + {job.video.name} [{state}]")
 
         if args.check:
@@ -344,7 +377,8 @@ def main() -> int:
             return 0
 
         for job in jobs:
-            if job_is_complete(job, expected_output_count):
+            signature = signatures[job.name]
+            if job_is_complete(job, signature):
                 print(f"跳過已完成工作：{job.name}")
                 continue
             prepared, output_node_ids = prepare_workflow(workflow, job)
@@ -353,6 +387,7 @@ def main() -> int:
             saved = download_outputs(prompt_id, job, output_node_ids)
             for path in saved:
                 print(f"已儲存：{path}")
+            mark_job_complete(job, signature, saved)
         return 0
     except (RuntimeError, OSError, json.JSONDecodeError) as exc:
         print(f"錯誤：{exc}", file=sys.stderr)

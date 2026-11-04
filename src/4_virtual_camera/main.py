@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import sys
@@ -9,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import config
-from PIL import Image, ImageChops, ImageFilter
+from PIL import Image
 
 
 CAMERA_MODELS = {
@@ -69,7 +70,6 @@ class BuildResult:
     dataset_dir: Path
     zip_path: Path | None
     image_count: int
-    mask_count: int
     camera_count: int
     point_count: int
 
@@ -77,13 +77,13 @@ class BuildResult:
 def require_invariants() -> None:
     required_true = {
         "REUSE_ORIGINAL_CAMERA_POSES": config.REUSE_ORIGINAL_CAMERA_POSES,
-        "EXPORT_SEPARATE_MASKS": config.EXPORT_SEPARATE_MASKS,
         "COMPOSE_RGBA_IMAGES": config.COMPOSE_RGBA_IMAGES,
     }
     required_false = {
         "ESTIMATE_CAMERAS": config.ESTIMATE_CAMERAS,
         "OPTIMIZE_CAMERAS": config.OPTIMIZE_CAMERAS,
         "MATCH_FEATURES": config.MATCH_FEATURES,
+        "EXPORT_SEPARATE_MASKS": config.EXPORT_SEPARATE_MASKS,
     }
     invalid = [name for name, value in required_true.items() if value is not True]
     invalid += [name for name, value in required_false.items() if value is not False]
@@ -94,18 +94,139 @@ def require_invariants() -> None:
         )
 
 
-def find_exactly_one(folder: Path, pattern: str, label: str) -> Path:
-    matches = sorted(folder.glob(pattern), key=lambda path: path.name.casefold())
-    if len(matches) != 1:
-        names = ", ".join(path.name for path in matches) or "none"
-        raise ValueError(
-            f"Input group {folder.name!r} requires exactly one {label} matching "
-            f"{pattern!r}; found {len(matches)}: {names}"
+def require_media_tools() -> None:
+    for executable in (config.FFMPEG_EXECUTABLE, config.FFPROBE_EXECUTABLE):
+        if shutil.which(executable) is None:
+            raise FileNotFoundError(f"Required executable not found: {executable!r}")
+
+
+def mask_likeness(video_path: Path) -> tuple[float, float]:
+    sample_count = max(2, config.MASK_SAMPLE_FRAMES)
+    last_frame = config.EXPECTED_FRAMES - 1
+    sample_indices = sorted(
+        {
+            round(index * last_frame / (sample_count - 1))
+            for index in range(sample_count)
+        }
+    )
+    select_expression = "+".join(
+        f"eq(n\\,{frame_index})" for frame_index in sample_indices
+    )
+    size = config.MASK_ANALYSIS_SIZE
+    command = [
+        config.FFMPEG_EXECUTABLE,
+        "-v",
+        "error",
+        "-i",
+        str(video_path),
+        "-vf",
+        f"select={select_expression},"
+        f"scale={size}:{size}:flags=neighbor,format=rgb24",
+        "-fps_mode",
+        "passthrough",
+        "-f",
+        "rawvideo",
+        "pipe:1",
+    ]
+    try:
+        raw = subprocess.run(command, check=True, capture_output=True).stdout
+    except subprocess.CalledProcessError as exc:
+        detail = exc.stderr.decode("utf-8", errors="replace").strip()
+        raise RuntimeError(f"Cannot sample video {video_path}: {detail}") from exc
+    if not raw or len(raw) % 3:
+        raise ValueError(f"No usable RGB samples decoded from {video_path}")
+
+    pixel_count = len(raw) // 3
+    grayscale_count = 0
+    binary_count = 0
+    for offset in range(0, len(raw), 3):
+        red, green, blue = raw[offset : offset + 3]
+        is_grayscale = (
+            max(red, green, blue) - min(red, green, blue)
+            <= config.MASK_GRAYSCALE_TOLERANCE
         )
-    return matches[0]
+        if is_grayscale:
+            grayscale_count += 1
+            level = (red + green + blue) / 3
+            if level <= config.MASK_BINARY_LOW or level >= config.MASK_BINARY_HIGH:
+                binary_count += 1
+    return grayscale_count / pixel_count, binary_count / pixel_count
+
+
+def video_signature(video_path: Path) -> tuple[int, int, int]:
+    command = [
+        config.FFPROBE_EXECUTABLE,
+        "-v",
+        "error",
+        "-count_frames",
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "stream=width,height,nb_read_frames,nb_frames",
+        "-of",
+        "json",
+        str(video_path),
+    ]
+    try:
+        payload = subprocess.run(
+            command, check=True, capture_output=True, text=True, encoding="utf-8"
+        ).stdout
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(f"Cannot inspect video stream: {video_path}") from exc
+    streams = json.loads(payload).get("streams", [])
+    if len(streams) != 1:
+        raise ValueError(f"Expected one video stream in {video_path}")
+    stream = streams[0]
+    frame_value = stream.get("nb_read_frames") or stream.get("nb_frames")
+    if frame_value in (None, "N/A"):
+        raise ValueError(f"Cannot determine frame count for {video_path}")
+    return int(stream["width"]), int(stream["height"]), int(frame_value)
+
+
+def detect_video_pair(folder: Path) -> tuple[Path, Path]:
+    videos = sorted(folder.glob(config.VIDEO_GLOB), key=lambda path: path.name.casefold())
+    if len(videos) < 2:
+        raise ValueError(
+            f"Input group {folder.name!r} requires at least two MP4 files; "
+            f"found {len(videos)}"
+        )
+
+    likeness = {video: mask_likeness(video) for video in videos}
+    mask_candidates = [
+        video
+        for video, (grayscale_fraction, binary_fraction) in likeness.items()
+        if grayscale_fraction >= config.MASK_MIN_GRAYSCALE_FRACTION
+        and binary_fraction >= config.MASK_MIN_BINARY_FRACTION
+    ]
+    if len(mask_candidates) != 1:
+        scores = "; ".join(
+            f"{video.name}: gray={gray:.3f}, binary={binary:.3f}"
+            for video, (gray, binary) in likeness.items()
+        )
+        raise ValueError(
+            f"Input group {folder.name!r} must contain exactly one black/white "
+            f"mask video; found {len(mask_candidates)}. {scores}"
+        )
+
+    mask_video = mask_candidates[0]
+    mask_signature = video_signature(mask_video)
+    color_candidates = [
+        video
+        for video in videos
+        if video != mask_video and video_signature(video) == mask_signature
+    ]
+    if len(color_candidates) != 1:
+        matches = ", ".join(video.name for video in color_candidates) or "none"
+        raise ValueError(
+            f"Input group {folder.name!r} must contain exactly one non-mask video "
+            f"with the mask's width, height, and frame count {mask_signature}; "
+            f"found {len(color_candidates)}: {matches}"
+        )
+    return color_candidates[0], mask_video
 
 
 def discover_input_groups() -> list[InputGroup]:
+    require_media_tools()
     if not config.INPUT_DIR.is_dir():
         raise FileNotFoundError(f"Input directory not found: {config.INPUT_DIR}")
 
@@ -126,16 +247,13 @@ def discover_input_groups() -> list[InputGroup]:
 
     groups: list[InputGroup] = []
     for folder in candidates:
+        color_video, mask_video = detect_video_pair(folder)
         groups.append(
             InputGroup(
                 name=folder.name,
                 root=folder,
-                color_video=find_exactly_one(
-                    folder, config.COLOR_VIDEO_GLOB, "color video"
-                ),
-                mask_video=find_exactly_one(
-                    folder, config.MASK_VIDEO_GLOB, "mask video"
-                ),
+                color_video=color_video,
+                mask_video=mask_video,
                 source_colmap=folder / config.COLMAP_RELATIVE_PATH,
             )
         )
@@ -298,91 +416,35 @@ def safe_colmap_image_name(name: str) -> Path:
     return normalized
 
 
-def stage_rgb_images(
-    color_frames: list[Path], poses: list[ImagePose], images_dir: Path
-) -> list[Path]:
-    if len(color_frames) != len(poses):
-        raise ValueError(
-            f"Cannot pair {len(color_frames)} color frames with {len(poses)} poses"
-        )
-    output_images: list[Path] = []
-    for color_frame, pose in zip(color_frames, poses, strict=True):
-        relative_name = safe_colmap_image_name(pose.source_name)
-        destination = images_dir / relative_name
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(color_frame, destination)
-        output_images.append(destination)
-    return output_images
-
-
-def write_binary_masks(
+def write_rgba_images(
+    color_frames: list[Path],
     mask_frames: list[Path],
     poses: list[ImagePose],
     images_dir: Path,
-    masks_dir: Path,
 ) -> list[Path]:
-    if not 0 <= config.MASK_THRESHOLD <= 254:
-        raise ValueError("MASK_THRESHOLD must be between 0 and 254")
-    if config.MASK_EROSION_PIXELS < 0:
-        raise ValueError("MASK_EROSION_PIXELS must be zero or greater")
-    if len(mask_frames) != len(poses):
+    if len(color_frames) != len(mask_frames) or len(color_frames) != len(poses):
         raise ValueError(
-            f"Cannot pair {len(mask_frames)} mask frames with {len(poses)} poses"
+            f"Cannot pair {len(color_frames)} color frames, "
+            f"{len(mask_frames)} mask frames, and {len(poses)} poses"
         )
 
-    output_masks: list[Path] = []
-    for mask_frame, pose in zip(mask_frames, poses, strict=True):
+    output_images: list[Path] = []
+    for color_frame, mask_frame, pose in zip(
+        color_frames, mask_frames, poses, strict=True
+    ):
         relative_name = safe_colmap_image_name(pose.source_name)
-        image_path = images_dir / relative_name
-        destination = masks_dir / relative_name
+        destination = images_dir / relative_name
         destination.parent.mkdir(parents=True, exist_ok=True)
 
-        with Image.open(image_path) as image:
-            image_size = image.size
-        with Image.open(mask_frame) as source_mask:
-            mask = source_mask.convert("L")
-            if mask.size != image_size:
-                mask = mask.resize(image_size, resample=Image.Resampling.NEAREST)
-            mask = mask.point(
-                lambda value: 255 if value > config.MASK_THRESHOLD else 0,
-                mode="L",
-            )
-            if config.MASK_EROSION_PIXELS:
-                filter_size = config.MASK_EROSION_PIXELS * 2 + 1
-                mask = mask.filter(ImageFilter.MinFilter(filter_size))
-            mask.save(destination, format="PNG")
-        output_masks.append(destination)
-    return output_masks
-
-
-def compose_rgba_images(
-    images_dir: Path,
-    masks_dir: Path,
-    poses: list[ImagePose],
-) -> list[Path]:
-    """Write each binary foreground mask into the matching PNG alpha channel."""
-    output_images: list[Path] = []
-    for pose in poses:
-        relative_name = safe_colmap_image_name(pose.source_name)
-        image_path = images_dir / relative_name
-        mask_path = masks_dir / relative_name
-        if not image_path.is_file() or not mask_path.is_file():
-            raise FileNotFoundError(
-                f"Cannot compose RGBA without matching image and mask: {relative_name}"
-            )
-
-        with Image.open(image_path) as source_image, Image.open(mask_path) as source_mask:
+        with Image.open(color_frame) as source_image, Image.open(mask_frame) as source_mask:
             rgb = source_image.convert("RGB")
             alpha = source_mask.convert("L")
             if rgb.size != alpha.size:
-                raise ValueError(
-                    f"RGB/mask dimensions differ for {relative_name}: "
-                    f"{rgb.size} vs {alpha.size}"
-                )
+                alpha = alpha.resize(rgb.size, resample=Image.Resampling.NEAREST)
             rgba = rgb.copy()
             rgba.putalpha(alpha)
-            rgba.save(image_path, format="PNG")
-        output_images.append(image_path)
+            rgba.save(destination, format="PNG")
+        output_images.append(destination)
     return output_images
 
 
@@ -393,21 +455,14 @@ def copy_colmap_text_model(source_dir: Path, sparse_dir: Path) -> None:
 
 def validate_dataset(
     images_dir: Path,
-    masks_dir: Path,
     sparse_dir: Path,
     poses: list[ImagePose],
-) -> tuple[int, int]:
+) -> int:
     registered_names = [safe_colmap_image_name(pose.source_name) for pose in poses]
     if len(set(registered_names)) != len(registered_names):
         raise ValueError("COLMAP contains duplicate registered image names")
 
     image_files = sorted(path for path in images_dir.rglob("*") if path.is_file())
-    mask_files = sorted(path for path in masks_dir.rglob("*") if path.is_file())
-    if len(image_files) != len(mask_files):
-        raise ValueError(
-            f"RGBA/mask count mismatch: {len(image_files)} images, "
-            f"{len(mask_files)} masks"
-        )
     if len(image_files) != len(poses):
         raise ValueError(
             f"Registered/output count mismatch: {len(poses)} registered, "
@@ -416,34 +471,17 @@ def validate_dataset(
 
     for relative_name in registered_names:
         image_path = images_dir / relative_name
-        mask_path = masks_dir / relative_name
         if not image_path.is_file():
             raise FileNotFoundError(f"Registered RGBA image missing: {image_path}")
-        if not mask_path.is_file():
-            raise FileNotFoundError(f"Registered mask missing: {mask_path}")
-        with Image.open(image_path) as image, Image.open(mask_path) as mask:
+        with Image.open(image_path) as image:
             if image.mode != "RGBA":
                 raise ValueError(
                     f"Brush image must contain RGBA channels: {image_path} "
                     f"has mode {image.mode}"
                 )
-            if mask.mode != "L":
-                raise ValueError(
-                    f"Mask must be 8-bit single-channel: {mask_path} has mode {mask.mode}"
-                )
-            if image.size != mask.size:
-                raise ValueError(
-                    f"RGBA/mask dimensions differ for {relative_name}: "
-                    f"{image.size} vs {mask.size}"
-                )
-            colors = mask.getcolors(maxcolors=3)
-            if colors is None or not {value for _, value in colors}.issubset({0, 255}):
-                raise ValueError(f"Mask contains values other than 0 and 255: {mask_path}")
-            alpha = image.getchannel("A")
-            if ImageChops.difference(alpha, mask).getbbox() is not None:
-                raise ValueError(
-                    f"RGBA alpha does not match the exported mask: {relative_name}"
-                )
+            alpha_min, alpha_max = image.getchannel("A").getextrema()
+            if alpha_min == alpha_max:
+                raise ValueError(f"RGBA alpha channel is constant: {image_path}")
 
     expected_model_files = {"cameras.txt", "images.txt", "points3D.txt"}
     actual_model_files = {path.name for path in sparse_dir.iterdir() if path.is_file()}
@@ -451,7 +489,7 @@ def validate_dataset(
         raise ValueError(
             f"COLMAP model files conflict or are incomplete: {sorted(actual_model_files)}"
         )
-    return len(image_files), len(mask_files)
+    return len(image_files)
 
 
 def make_zip(dataset_dir: Path, zip_path: Path) -> None:
@@ -501,10 +539,8 @@ def build_dataset(group: InputGroup) -> BuildResult:
     ) as temp:
         staged_dataset = Path(temp) / "brush_dataset"
         images_dir = staged_dataset / "images"
-        masks_dir = staged_dataset / "masks"
         sparse_dir = staged_dataset / "sparse" / "0"
         images_dir.mkdir(parents=True)
-        masks_dir.mkdir(parents=True)
         sparse_dir.mkdir(parents=True)
 
         raw_color_dir = Path(temp) / "color_frames"
@@ -517,13 +553,9 @@ def build_dataset(group: InputGroup) -> BuildResult:
         mask_frames = extract_video_frames(
             group.mask_video, raw_mask_dir, config.MASK_PREFIX
         )
-        stage_rgb_images(color_frames, poses, images_dir)
-        write_binary_masks(mask_frames, poses, images_dir, masks_dir)
-        compose_rgba_images(images_dir, masks_dir, poses)
+        write_rgba_images(color_frames, mask_frames, poses, images_dir)
         copy_colmap_text_model(group.source_colmap, sparse_dir)
-        image_count, mask_count = validate_dataset(
-            images_dir, masks_dir, sparse_dir, poses
-        )
+        image_count = validate_dataset(images_dir, sparse_dir, poses)
 
         if dataset_dir.exists():
             shutil.rmtree(dataset_dir)
@@ -540,7 +572,6 @@ def build_dataset(group: InputGroup) -> BuildResult:
         dataset_dir=dataset_dir,
         zip_path=exported_zip,
         image_count=image_count,
-        mask_count=mask_count,
         camera_count=len(cameras),
         point_count=len(points),
     )
@@ -566,7 +597,6 @@ def main() -> int:
         if result.zip_path is not None:
             print(f"[{result.group.name}] ZIP:     {result.zip_path}")
         print(f"[{result.group.name}] Images:  {result.image_count}")
-        print(f"[{result.group.name}] Masks:   {result.mask_count}")
         print(f"[{result.group.name}] Cameras: {result.camera_count}")
         print(f"[{result.group.name}] Points:  {result.point_count}")
         print(f"[{result.group.name}] Camera poses: reused unchanged in source file order")
@@ -574,7 +604,7 @@ def main() -> int:
             print(f"[{result.group.name}] Brush command:")
             print(
                 f'  & "{config.BRUSH_EXECUTABLE}" "{result.dataset_dir}"'
-                " --with-viewer"
+                f" --with-viewer --alpha-mode {config.BRUSH_ALPHA_MODE}"
             )
             if result.point_count == 0:
                 print(

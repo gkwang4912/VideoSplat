@@ -1,5 +1,3 @@
-import os
-import shutil
 from pathlib import Path
 
 # ============================================================
@@ -9,30 +7,21 @@ from pathlib import Path
 # main.py / config.py 所在資料夾
 BASE_DIR = Path(__file__).resolve().parent
 
-# 預設直接讀取 Stage 3 建立的 RGBA Brush dataset。若要改用其他資料，
-# 可用 VIDEOSPLAT_BRUSH_INPUT_DIR 指定包含各 group 的目錄。
-INPUT_DIR = Path(
-    os.environ.get("VIDEOSPLAT_BRUSH_INPUT_DIR")
-    or BASE_DIR.parent / "3_virtual_camera" / "output"
-)
+# 使用本程式資料夾內的 input，不依賴其他流程階段的路徑。
+INPUT_DIR = BASE_DIR / "input"
 OUTPUT_DIR = BASE_DIR / "output"
 
 # 每一組資料中真正要送進 Brush 的資料夾名稱
 # 例如：
-# 3_virtual_camera/output/
+# input/
 #   1/
 #     brush_dataset/
 #       images/
 #       sparse/
 DATASET_SUBDIR = "brush_dataset"
 
-# 使用手動 GUI 訓練結果良好的 Brush 0.3.0；同一執行檔也支援 CLI 批次模式。
-BRUSH_EXE = Path(
-    os.environ.get("VIDEOSPLAT_BRUSH_EXE")
-    or shutil.which("brush-cli")
-    or shutil.which("brush-cli.exe")
-    or "brush-cli.exe"
-)
+# 使用產生良好結果的 Brush 0.3.0；與批次程式放在同一資料夾。
+BRUSH_EXE = BASE_DIR / "brush_app.exe"
 
 
 # ============================================================

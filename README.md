@@ -2,251 +2,405 @@
 
 **V2.0.0 Release Candidate · Unreleased**
 
-[繁體中文](./README.md) | [English](./README_EN.md) | [CHANGELOG](./CHANGELOG.md) | [GitHub Releases](https://github.com/gkwang4912/VideoSplat/releases) | [V2 架構](./docs/versions/V2_ARCHITECTURE.md) | [V1 → V2 遷移指南](./docs/versions/MIGRATION_V1_TO_V2.md)
-
-| Version | Status | Documentation |
-|---|---|---|
-| V2.0.0 | Release Candidate / Unreleased | Current README |
-| V1.0.0 | Legacy | [V1 中文 README](./docs/versions/README_V1.md) / [English](./docs/versions/README_V1_EN.md) |
+[繁體中文](README.md) | [English](README_EN.md)
 
 ## 專案總覽（Project Overview）
 
-VideoSplat V2 是一套以 Python 與檔案交換為核心的研究工具。它從單張全身角色圖片建立固定姿勢的 360° 骨架控制影片與已知相機軌跡，再透過 ComfyUI 生成角色環繞影片及遮罩，將生成影格與原始相機姿態組成 Brush 資料集，最後訓練 3D Gaussian Splatting（3DGS）PLY。
+VideoSplat 把一張全身角色圖轉成可供 Gaussian Splatting 訓練的多視角資料，再以 Brush 匯出 PLY。這個工作區目前的實作分成五個可獨立執行的 Python 工具：骨架與相機建立、角色影片生成、影片遮罩生成、RGBA 資料集組裝、Gaussian 訓練。
 
-V2 解決從生成影片重新估計不穩定的相機路徑問題：相機軌跡在影片生成前就已確定，後續 RGB、mask 與 COLMAP pose 以相同的 175 幀順序對齊。使用對象是研究單張角色多視角生成、已知姿態資料集與 3DGS 重建的工程師或研究者。
+設計重點是先定義相機，再產生受骨架控制的影像。骨架、RGB 影片、mask 影片與相機記錄以逐幀順序配對，避免在生成後另行估計相機。使用者主要是需要檢查控制條件、重建資料契約與 3DGS 結果的研究者及工程師；專案性質為本機研究工具鏈（tool），各階段透過磁碟檔案交接。
 
-以下三個展示依序使用 V2 的真實 Stage 1 骨架影片、Stage 2 生成影片，以及由 Stage 4 `4.ply` 實際渲染的 Gaussian 模型環繞預覽。
+### 循環預覽
+
+三個內嵌預覽都是實際 GIF 動畫，已檢查動畫資訊的 `loop=0`，支援 GIF 的 Markdown 閱讀器會持續循環。MP4 僅作為另開觀看的連結。
 
 <table>
   <tr>
-    <th>175 幀骨架</th>
-    <th>生成影像</th>
-    <th>生成模型</th>
+    <th>骨架控制／Skeleton control</th>
+    <th>生成角色／Generated character</th>
+    <th>高斯模型／Gaussian render</th>
   </tr>
   <tr>
-    <td><img src="docs/assets/demo/v2/pose_control_video_175.gif" width="260" alt="V2 175 幀骨架環繞"></td>
-    <td><img src="docs/assets/demo/v2/generated_character_video.gif" width="260" alt="V2 生成角色環繞影像"></td>
-    <td><img src="docs/assets/demo/v2/gaussian_model_orbit.gif" width="260" alt="V2 Gaussian 模型環繞渲染"></td>
+    <td><img src="docs/assets/demo/v2/pose_control_video_175.gif" width="260" alt="循環播放的骨架控制 GIF"></td>
+    <td><img src="docs/assets/demo/v2/generated_character_video.gif" width="260" alt="循環播放的角色生成 GIF"></td>
+    <td><img src="docs/assets/demo/v2/gaussian_model_orbit.gif" width="260" alt="沿原始相機渲染的高斯模型循環 GIF"></td>
   </tr>
 </table>
 
-- [觀看 175 幀骨架 MP4](docs/assets/demo/v2/pose_control_video_175.mp4)
-- [觀看生成影像 MP4](docs/assets/demo/v2/generated_character_video.mp4)
-- [觀看生成模型 MP4](docs/assets/demo/v2/gaussian_model_orbit.mp4)
-- [查看 V1 原始展示與技術文件](docs/versions/README_V1.md)
+| 素材 | GIF 規格 | 對應 MP4 |
+|---|---|---|
+| 骨架控制 | 240×427，88 個動畫影格 | [720×1280，175 幀，24 FPS](docs/assets/demo/v2/pose_control_video_175.mp4) |
+| 生成角色 | 320×560，88 個動畫影格 | [512×896，175 幀，24 FPS](docs/assets/demo/v2/generated_character_video.mp4) |
+| Gaussian 模型 | 384×683，175 個動畫影格 | [1080×1920，175 幀，24 FPS](docs/assets/demo/v2/gaussian_model_orbit.mp4) |
+
+模型預覽使用 `src/5_360brush/output/4/4.ply` 的 60,507 個高斯，以 `tools/render_gaussian_reference.py` 渲染。175 個鏡頭來自該角色訓練資料的 COLMAP 記錄；保留位置、旋轉、影像順序，並按輸出尺寸等比例縮放內參。GIF 是展示用縮圖，不代表訓練資料的幀數或解析度。
 
 ## 系統架構說明（Architecture Overview）
 
-
-```mermaid
-flowchart LR
-    IMG[單張全身角色圖片] --> S1[src/1_360_skeleton]
-    DW[DWPose ONNX<br/>輪廓備援] --> S1
-    S1 --> CTRL[對齊圖片<br/>175 幀骨架影片]
-    S1 --> CAM[已知 COLMAP 相機]
-    CTRL --> S2[src/2_suround_video]
-    CF[ComfyUI<br/>MiniMax H3 + ControlNet] --> S2
-    S2 --> VID[生成 RGB 影片<br/>生成 mask 影片]
-    VID --> S3[src/3_virtual_camera]
-    CAM --> S3
-    S3 --> DATA[Known-pose Brush dataset<br/>RGBA images masks sparse/0]
-    DATA --> S4[src/4_360brush]
-    BR[Brush CLI] --> S4
-    S4 --> PLY[Gaussian PLY]
-```
-
-模組責任與程式依賴如下。`3_virtual_camera` 的名稱保留自 V2 原始來源，但程式不建立新虛擬相機；它會強制沿用 Stage 1 的 pose。
+五個 Stage 各自從同目錄的 `config.py` 讀取路徑與參數。Stage 2、3 是 ComfyUI HTTP client；Stage 1、4 使用 FFmpeg；Stage 5 啟動本機 Brush 執行檔。訓練以外另有 CPU 渲染工具，可從 PLY 與原始 COLMAP 相機重現展示影片。
 
 ```mermaid
 flowchart TB
-    C1[src/1_360_skeleton/config.py] --> M1[src/1_360_skeleton/main.py]
-    VENDOR[vendored comfyui_controlnet_aux] --> DWB[dwpose_backend.py]
-    MODELS[本機 DWPose ONNX] --> DWB
-    DWB --> M1
-    C2[src/2_suround_video/config.py] --> M2[src/2_suround_video/main.py]
-    WF[VideoSplat_2_api.json] --> M2
-    M2 --> API[ComfyUI HTTP API]
-    C3[src/3_virtual_camera/config.py] --> M3[src/3_virtual_camera/main.py]
-    C4[src/4_360brush/config.py] --> M4[src/4_360brush/main.py]
-    M3 --> M4
+    Image["全身角色圖片"] --> S1["1_360_skeleton"]
+    Models["DWPose ONNX 與輪廓備援"] --> S1
+    S1 -->|"對齊圖片與骨架影片"| S2["2_suround_video"]
+    Comfy["ComfyUI HTTP API"] --> S2
+    S2 -->|"RGB 影片"| S3["3_remove_background"]
+    Comfy --> S3
+    S2 -->|"RGB 影片"| S4["4_virtual_camera"]
+    S3 -->|"mask 影片"| S4
+    S1 -->|"原始 COLMAP 相機"| S4
+    S4 -->|"人工複製 brush_dataset"| S5["5_360brush"]
+    Brush["brush_app.exe"] --> S5
+    S5 --> PLY["Gaussian PLY"]
+    PLY --> Render["render_gaussian_reference.py"]
+    S5 -->|"input 中的原始相機"| Render
+    Render --> Video["PNG 影格與 MP4"]
 ```
+
+圖中的跨 Stage 箭頭是檔案交接，並非程式自動搬移。所有 Stage 都有自己的 `input/`、`output/`；尤其 Stage 5 預設讀取 `src/5_360brush/input/`，沒有直接掃描 Stage 4 的輸出。
+
+| 邊界 | 上游負責 | 下游要求 |
+|---|---|---|
+| 1 → 2 | 對齊圖與骨架影片 | 每個第一層角色目錄同時包含兩個固定檔名 |
+| 2 → 3 | 生成的 RGB 影片 | 將選定版本放進 Stage 3 input；保留角色子目錄 |
+| 1、2、3 → 4 | 原始相機、RGB、mask | 同一角色目錄內提供相機模型與可唯一辨識的影片配對 |
+| 4 → 5 | RGBA dataset | 手動複製完整 `brush_dataset/` 到 Stage 5 input |
+| 5 → 渲染 | PLY 與訓練時相機 | 明確指定 PLY、COLMAP 路徑及輸出目錄 |
 
 ## 系統流程說明（System Flow）
 
-Stage 1 對每張輸入圖進行前景偵測與置中對齊；DWPose 可用時採用模型關節，漏點以輪廓補齊，模型不可用時整體回退到輪廓估計。系統將固定 3D 骨架投影到 175 個等角度相機，輸出骨架影片、逐幀 PNG、camera JSON 與 COLMAP text model。
+一次處理的資料單位是角色資料夾。完整運作順序如下：
 
-Stage 2 只處理 `config.py` 明確列出的 image/video pair。程式先驗證 API workflow 的 `LoadImage`、`LoadVideo`、`SaveVideo` 節點及 ComfyUI `/object_info`，再上傳輸入、排程 prompt、輪詢 history 並下載兩個影片輸出。Stage 3 將 output 1 視為 mask、output 2 視為 RGB，解碼後依 Stage 1 `images.txt` 的原始順序配對。
-
-Stage 3 負責 RGBA 轉換：它將 mask 轉為 `{0, 255}` 二值 alpha，寫入對應 RGB PNG 的 alpha channel，同時保留獨立 `masks/` 供檢查。輸出驗證會逐張確認 RGBA 的 alpha 與 mask 完全一致。Stage 4 預設直接讀取 `src/3_virtual_camera/output/<group>/brush_dataset/`，不再需要人工建立 RGBA 或複製 dataset。
+1. Stage 1 先輸出 `default` 固定骨架，再遞迴處理輸入圖片。前景偵測與置中完成後，採用 DWPose 關節；缺失關節使用輪廓補齊，模型初始化或偵測失敗則改用輪廓備援。
+2. Stage 2 掃描第一層子目錄，以 `source_aligned.png` 與 `pose_control_video_175.mp4` 建立工作。檢查 ComfyUI 節點後上傳、提交 prompt、輪詢 history、下載 RGB 影片；目前 API workflow 只有一個 `SaveVideo`。
+3. Stage 3 遞迴尋找影片。workflow 以第一幀的 BiRefNet mask 初始化 SAM3 追蹤，再把追蹤結果存成 mask 影片。輸出沿用輸入相對目錄及檔名主體。
+4. Stage 4 抽樣影片像素辨識唯一的黑白 mask，再以寬、高、影格數配對唯一 RGB 影片。兩段影片及 COLMAP pose 都必須各有 175 筆；逐幀把 mask 的灰階值寫進 RGB 的 alpha，按原始註冊名稱保存 RGBA PNG。
+5. Stage 5 檢查資料夾及 Brush flags，逐組執行訓練、記錄 `brush.log`，確認最後 PLY 存在且非空。渲染工具另行讀取這個 PLY 與原始相機，輸出逐幀影像及影片。
 
 ```mermaid
 flowchart TD
-    A[放入全身角色圖片] --> B[前景偵測與置中對齊]
-    B --> C{DWPose 可用且偵測成功}
-    C -- 是 --> D[DWPose 關節 + 漏點輪廓補齊]
-    C -- 否 --> E[輪廓姿態備援]
-    D --> F[渲染固定 175 幀骨架與相機]
-    E --> F
-    F --> G[準備 Stage 2 INPUT_JOBS]
-    G --> H{ComfyUI 節點與輸入通過檢查}
-    H -- 否 --> X[停止並顯示缺失項目]
-    H -- 是 --> I[生成 RGB 與 mask 影片]
-    I --> J{兩部影片與 175 個 pose 完整對應}
-    J -- 否 --> Y[停止資料集匯出]
-    J -- 是 --> K[合成並驗證 RGBA images]
-    K --> N[輸出 RGBA images masks sparse/0 與 ZIP]
-    N --> L{Brush CLI 與 dataset 驗證通過}
-    L -- 否 --> Z[記錄錯誤或處理下一組]
-    L -- 是 --> M[訓練並輸出 PLY]
+    Start["角色圖片"] --> Align["偵測前景並對齊"]
+    Align --> Pose{"DWPose 初始化與偵測成功？"}
+    Pose -->|"是"| ModelPose["模型關節與輪廓補漏"]
+    Pose -->|"否"| Fallback["輪廓姿態估計"]
+    ModelPose --> Known["175 幀骨架與相機"]
+    Fallback --> Known
+    Known --> Generate["ComfyUI 生成 RGB"]
+    Generate --> Mask["BiRefNet 初始化 SAM3 並輸出 mask"]
+    Mask --> Pair{"影片配對唯一且 RGB、mask、pose 都是 175 筆？"}
+    Pair -->|"否"| Stop["停止並輸出錯誤"]
+    Pair -->|"是"| RGBA["按 pose 順序建立 RGBA"]
+    RGBA --> Validate{"RGBA、註冊名稱與 sparse 檔案檢查通過？"}
+    Validate -->|"否"| Stop
+    Validate -->|"是"| Dataset["輸出 dataset 與 ZIP"]
+    Dataset --> Copy["人工複製到 Stage 5 input"]
+    Copy --> Train["Brush 訓練與 PLY 檢查"]
+    Train --> Preview["沿原始相機渲染"]
 ```
+
+| 情況 | 現有行為 |
+|---|---|
+| Stage 1 單張圖片處理失敗 | 繼續其他圖片；在 `batch_summary.json` 記錄失敗，最後拋出錯誤 |
+| Stage 2 只有一個必要輸入檔 | 回報不完整目錄並停止；完全不含兩個必要檔名的目錄則略過 |
+| Stage 2 已完成工作 | 以 workflow、圖片、影片的 SHA-256 簽章及 `.completed.json` 判斷是否可略過 |
+| Stage 3 已有同名影片 | 預設略過；`--force` 會重新生成並覆寫，未比對輸入內容簽章 |
+| Stage 4 任一組不合法 | 停止整批；先在暫存目錄組裝並驗證，通過後才取代該組 dataset |
+| Stage 5 單組失敗 | 預設記錄失敗並繼續下一組；最後以非零結束碼回報 |
 
 ## 資料夾結構說明（Folder Structure）
 
+以下結構同時標示程式目錄與目前工作區中的本機資料；不代表這些資料都已納入 Git。
+
 ```text
 VideoSplat/
-├── src/
-│   ├── 1_360_skeleton/
-│   │   ├── main.py
-│   │   ├── config.py
-│   │   ├── dwpose_backend.py
-│   │   ├── models/README.md
-│   │   └── third_party/comfyui_controlnet_aux/
-│   ├── 2_suround_video/
-│   │   ├── main.py
-│   │   ├── config.py
-│   │   └── workflows/
-│   ├── 3_virtual_camera/
-│   │   ├── main.py
-│   │   └── config.py
-│   └── 4_360brush/
-│       ├── main.py
-│       └── config.py
-├── tests/
-│   └── test_rgba_handoff.py
-├── docs/
-│   ├── assets/demo/
-│   └── versions/
-├── requirements.txt
-├── README.md
-├── README_EN.md
-├── CHANGELOG.md
-├── .gitignore
-└── .gitattributes
+|-- src/
+|   |-- 1_360_skeleton/
+|   |   |-- main.py, config.py, dwpose_backend.py, README.md
+|   |   |-- models/yzd-v/DWPose/
+|   |   |-- third_party/comfyui_controlnet_aux/
+|   |   |-- input/
+|   |   `-- output/
+|   |-- 2_suround_video/
+|   |   |-- main.py, config.py
+|   |   |-- workflows/VideoSplat_2.json
+|   |   |-- workflows/VideoSplat_2_api.json
+|   |   |-- input/
+|   |   `-- output/
+|   |-- 3_remove_background/
+|   |   |-- main.py, config.py
+|   |   |-- workflows/Sam3_remove_background.json
+|   |   |-- workflows/Sam3_remove_background_api.json
+|   |   |-- input/
+|   |   `-- output/
+|   |-- 4_virtual_camera/
+|   |   |-- main.py, config.py
+|   |   |-- input/
+|   |   `-- output/
+|   `-- 5_360brush/
+|       |-- main.py, config.py
+|       |-- brush_app.exe, brush-cli.exe
+|       |-- input/
+|       |-- output/
+|       `-- target/autotune/
+|-- tools/
+|   |-- render_gaussian_reference.py
+|   |-- render_gaussian_reference.md
+|   |-- render_gaussian_orbit.py
+|   `-- requirements-renderer.txt
+|-- docs/
+|   |-- assets/demo/
+|   |   `-- v2/
+|   `-- versions/
+|-- test_file/
+|   |-- Avater/black/
+|   |-- Avater/white/
+|   |-- suround/1/ ... 5/
+|   `-- 1080/
+|-- requirements.txt
+|-- README.md, README_EN.md, CHANGELOG.md
+`-- .gitignore, .gitattributes
 ```
 
-- `src/1_360_skeleton/`：角色對齊、骨架估計、固定相機、影片與 COLMAP pose 匯出。
-- `src/2_suround_video/`：ComfyUI API client 與 UI/API 兩種 workflow JSON。
-- `src/3_virtual_camera/`：RGB/mask 解碼、RGBA 合成、已知 pose 重用、資料驗證及 Brush dataset/ZIP 匯出。
-- `src/4_360brush/`：直接讀取 Stage 3 輸出，執行 Brush CLI 檢查、批次訓練、log 與 PLY 匯出確認。
-- `tests/`：Stage 3 RGBA composition 與 Stage 3 → 4 handoff 的離線回歸測試。
-- `docs/versions/`：V1 快照、V1/V2 版本文件、架構、遷移指南與 Release Notes。
-- 各階段的 `input/`、`output/`、模型、虛擬環境與訓練產物只存在本機，受 `.gitignore` 排除。
+| 位置 | 逐層責任 |
+|---|---|
+| `src/1_360_skeleton/models/` | 模型說明；`yzd-v/DWPose/` 保存下載的 detector 與 pose ONNX |
+| `third_party/comfyui_controlnet_aux/src/custom_controlnet_aux/dwpose/` | vendored 姿態推論；`dw_onnx/` 是 ONNX 前後處理，`dw_torchscript/` 是另一路 TorchScript 實作 |
+| 各 Stage 的 `input/`、`output/` | 執行時資料；角色 group 的意義由對應程式的 discovery 函式決定 |
+| `src/5_360brush/target/autotune/` | 本機現有的 Brush／CubeCL autotune 快取 |
+| `tools/` | PLY 離線渲染程式、重現說明及獨立依賴清單 |
+| `docs/assets/demo/`、`v2/` | 舊展示與目前三個內嵌預覽的 GIF、MP4、除錯 PNG |
+| `docs/versions/` | V1 文件快照、V1/V2 說明、架構、遷移、release notes 與版本政策；部分內容仍描述先前的四階段設計 |
+| `test_file/` | 人物圖片與影片樣本，沒有測試 runner；`Avater`、`suround` 為實際拼字 |
+| `test_file/suround/1/ ... 5/` | RGB／mask／角色圖片組；其中第 4 組圖片實際名為 `souce.png` |
+| `test_file/1080/` | 三個 `video_latent_refine_*.mp4` 影片樣本 |
+
+Stage 4 交給 Brush 的目錄只有 RGBA 影像與 COLMAP 模型，不含獨立 `masks/`：
+
+```text
+src/4_virtual_camera/output/<group>/
+|-- brush_dataset/
+|   |-- images/frame000.png ... frame174.png
+|   `-- sparse/0/
+|       |-- cameras.txt
+|       |-- images.txt
+|       `-- points3D.txt
+`-- brush_dataset.zip
+```
+
+影像名稱實際沿用 `images.txt`；上例的 `frameNNN.png` 是 Stage 1 預設命名。複製到 Stage 5 後，入口為 `src/5_360brush/input/<group>/brush_dataset/`。
 
 ## 核心模組與重要檔案（Key Modules & Files）
 
-| File | Responsibility | Relationship |
-|---|---|---|
-| `src/1_360_skeleton/main.py` | 角色對齊、姿態備援、骨架投影、影片/COLMAP/JSON 匯出 | 讀取 Stage 1 config；可呼叫 DWPose backend |
-| `src/1_360_skeleton/dwpose_backend.py` | 載入本機 detector/pose ONNX 並輸出身體與手部關節 | 使用 vendored `comfyui_controlnet_aux` |
-| `src/2_suround_video/main.py` | 驗證、上傳、排程、輪詢及下載 ComfyUI 工作 | 讀取 API workflow 與 Stage 2 config |
-| `VideoSplat_2_api.json` | 可直接提交的生成、去背、追蹤與雙影片輸出圖 | 由 Stage 2 main 載入 |
-| `src/3_virtual_camera/main.py` | 解析 COLMAP text model、解碼影片、二值化 mask、合成及驗證 RGBA dataset | 保留 Stage 1 pose，不執行 camera estimation |
-| `src/4_360brush/main.py` | 驗證 Stage 3 RGBA dataset 與 Brush flags、批次訓練、log 與輸出檢查 | 預設直接讀取 Stage 3 output |
-| `docs/versions/V2_ARCHITECTURE.md` | V2 技術事實與資料契約基準 | README 與版本文件的技術依據 |
+| 檔案或函式 | 主要責任與關聯 |
+|---|---|
+| [Stage 1 main.py](src/1_360_skeleton/main.py) | `camera_for_frame` 建立外參，`write_colmap_model` 匯出相機，`generate_character` 產生影片與診斷資料 |
+| [dwpose_backend.py](src/1_360_skeleton/dwpose_backend.py) | 驗證模型大小與 SHA-256、續傳下載、載入 `Wholebody`；避免執行第三方 package 不需要的初始化 |
+| [Stage 2 main.py](src/2_suround_video/main.py) | `discover_jobs` 自動配對；`job_signature` 與完成記錄管理重跑；使用標準函式庫呼叫 ComfyUI |
+| [生成 API workflow](src/2_suround_video/workflows/VideoSplat_2_api.json) | 32 個節點；MiniMax H3 reference-to-video、骨架 ControlNet、LoRA、記憶體最佳化與單一影片輸出 |
+| [Stage 3 main.py](src/3_remove_background/main.py) | 遞迴影片 discovery、串流 multipart 上傳、保留相對目錄的下載與 `--force` 行為 |
+| [去背 API workflow](src/3_remove_background/workflows/Sam3_remove_background_api.json) | 12 個節點；`VHS_LoadVideo`、BiRefNet 首幀 mask、SAM3 追蹤與 mask 影片保存 |
+| [Stage 4 main.py](src/4_virtual_camera/main.py) | `detect_video_pair` 以內容／規格辨識配對；`write_rgba_images` 合成 alpha；`build_dataset` 驗證與匯出 |
+| [Stage 5 main.py](src/5_360brush/main.py) | `detect_steps_flag`、`build_command`、`run_brush` 負責 CLI 相容性、訓練命令與 log |
+| [目前預覽渲染器](tools/render_gaussian_reference.py) | 按數字順序讀 SH 欄位、重建協方差、投影橢圓、深度排序與 alpha 混合；要求 `--colmap` |
+| [另一個離線腳本](tools/render_gaussian_orbit.py) | 內建自動環繞取景；其 vertical-axis parser 預期數字向量，不能直接處理本次 PLY 的 `Vertical axis: y` |
+| [渲染說明](tools/render_gaussian_reference.md) | 描述輸出、相機模式及重現預覽的命令 |
+
+```mermaid
+flowchart TB
+    C1["Stage 1 config.py"] --> M1["Stage 1 main.py"]
+    M1 --> DW["dwpose_backend.py"]
+    DW --> WB["vendored Wholebody"]
+    C2["Stage 2 config.py"] --> M2["Stage 2 main.py"]
+    W2["VideoSplat_2_api.json"] --> M2
+    C3["Stage 3 config.py"] --> M3["Stage 3 main.py"]
+    W3["Sam3_remove_background_api.json"] --> M3
+    M2 --> API["ComfyUI HTTP API"]
+    M3 --> API
+    C4["Stage 4 config.py"] --> M4["Stage 4 main.py"]
+    M4 --> Media["FFmpeg 與 FFprobe"]
+    C5["Stage 5 config.py"] --> M5["Stage 5 main.py"]
+    M5 --> EXE["BRUSH_EXE"]
+    P["PLY 與原始 COLMAP 檔案"] --> R["render_gaussian_reference.py"]
+    R --> CPU["NumPy / SciPy / Numba / Pillow"]
+    R --> Encode["FFmpeg MP4 編碼"]
+```
 
 ## 安裝與環境需求（Installation & Requirements）
 
-V2 原始環境使用 Python 3.10.22；程式語法至少需要 Python 3.10。Repository 不包含原始 `.pose_env`、模型權重、ComfyUI 或 Brush binary。
+### 執行環境
+
+| 項目 | 可由目前檔案確認的要求 |
+|---|---|
+| Python | 至少 3.10，Stage 4 使用 `zip(..., strict=True)`；完整相依套件相容版號尚未定義 |
+| 作業系統 | 現有 Brush 設定指向 Windows `.exe`；其他系統的完整部署流程尚未定義 |
+| FFmpeg / FFprobe | 需在 PATH；Stage 1 編碼、Stage 4 偵測與解碼、渲染器輸出影片使用 |
+| ComfyUI | Stage 2、3 各設定預設 `http://127.0.0.1:8188`；必要節點須出現在 `/object_info` |
+| GPU / VRAM | 影片模型與 Brush 訓練的最低需求尚未定義；CPU 預覽渲染器不要求 CUDA |
+| Brush | 工作區現有 `brush_app.exe` 與 `brush-cli.exe`；Stage 5 實際使用前者，啟動前驗證 flags |
+
+從根目錄安裝 Python 依賴：
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
+python -m pip install -r tools/requirements-renderer.txt
+ffmpeg -version
+ffprobe -version
 ```
 
-另外安裝 FFmpeg 並確保 `ffmpeg` 位於 PATH。將下列 DWPose 模型放到 `src/1_360_skeleton/models/yzd-v/DWPose/`：
+根 `requirements.txt` 透過 `-r` 引入 vendored requirements，包含 Torch、TorchVision、OpenCV、NumPy、Pillow、SciPy、Hugging Face Hub、MediaPipe、ONNX Runtime 等。渲染清單另外列出 NumPy、SciPy、Pillow、plyfile、Numba。這兩份清單均無完整版本鎖定。
 
-- `yolox_l.onnx`
-- `dw-ll_ucoco_384.onnx`
+### 模型與服務準備
 
-Stage 2 需要可連線的 ComfyUI。Workflow 實際引用 MiniMax H3 UNet/VAE/text encoder、Pika H3 LoRA、MiniMax H3 Fun ControlNet model patch、BiRefNet 及 SAM3.1 checkpoint；完整檔名以兩份 workflow JSON 為準。ComfyUI 與 custom nodes 的精確版本尚未定義。
+DWPose 的 `yolox_l.onnx`、`dw-ll_ucoco_384.onnx` 由 backend 在需要時下載到 `models/yzd-v/DWPose/`；合計大小為 351,145,849 bytes。下載以 `.part` 續傳，驗證大小與 SHA-256，最多嘗試三次。也可事先放入符合驗證的檔案。
 
-Stage 4 需要支援程式檢查之 flags 的 Brush CLI。若 Brush 不在 PATH，設定：
+ComfyUI 的模型實際名稱來自兩個 API workflow：
 
-```powershell
-$env:VIDEOSPLAT_BRUSH_EXE = 'C:\path\to\brush-cli.exe'
-```
+| 階段 | 模型欄位內容 |
+|---|---|
+| 生成 | `minimax_h3_ref2va_pruned_int8_convrot.safetensors` |
+| 生成 | `minimax_h3_video_vae_int8_convrot.safetensors` |
+| 生成 | `qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors` |
+| 生成 | `pika_h3_flex_ref2va_comfy_bf16.safetensors` |
+| 生成 | `minimax_h3_fun_controlnet_union_pruned_int8_convrot.safetensors` |
+| mask | `BiRefNet-general`、`sam3.1_multiplex_fp16.safetensors` |
 
-本專案沒有必要的雲端 API Key 或 `.env`。ComfyUI 預設網址是 `http://127.0.0.1:8188`。
+custom node 安裝來源與精確版本尚未由專案統一規範；以 workflow 的 `class_type` 和各 Stage 的 `--check` 核對節點完整性。`--check` 不會驗證所有模型檔內容，也不代表已完成生成。
+
+沒有專案層級的必要 API key 或 `.env` schema。已使用的環境變數包括 `AUX_ORT_PROVIDERS`；backend 預設設為 `CPUExecutionProvider`。Stage 4 的 `VIDEOSPLAT_BRUSH_EXE` 只影響它印出的建議命令，不會改變 Stage 5 的 `BRUSH_EXE`。
 
 ## 使用方式（How to Use）
 
-所有命令從 Repository 根目錄執行。Stage 4 會直接讀取 Stage 3 output；前兩個 handoff 仍需依下列目錄準備檔案。
+所有命令從 VideoSplat 根目錄執行。`<group>` 表示同一個角色的資料夾名稱；目前已存在的角色名稱為 `4`。
 
-1. 將 PNG/JPG/JPEG/WEBP/BMP 全身圖放入 `src/1_360_skeleton/input/`，執行：
+1. 將角色圖放入 `src/1_360_skeleton/input/`。目前的 `4.png` 會對應 `output/4/`。執行：
 
    ```powershell
    python -B src/1_360_skeleton/main.py
    ```
 
-2. 對每個角色，將 Stage 1 的 `source_aligned.png` 與 `pose_control_video_175.mp4` 放到 `src/2_suround_video/input/<group>/`，並同步修改 `src/2_suround_video/config.py` 的 `INPUT_JOBS`。先檢查，再生成：
+   檢查 `source_aligned.png`、`pose_alignment_preview.png` 與 `pose_detection.json`。保留該組 `colmap/sparse/0/`，後續必須沿用。
+
+2. 將該組 `source_aligned.png`、`pose_control_video_175.mp4` 複製到 `src/2_suround_video/input/<group>/`，啟動已備妥節點與模型的 ComfyUI，執行：
 
    ```powershell
-   python src/2_suround_video/main.py --check
-   python src/2_suround_video/main.py
+   python -B src/2_suround_video/main.py --check
+   python -B src/2_suround_video/main.py
    ```
 
-3. 在 `src/3_virtual_camera/input/<group>/` 放入 Stage 2 的 `*_output_1_*.mp4` mask 影片、`*_output_2_*.mp4` RGB 影片，以及 Stage 1 的 `colmap/sparse/0/`，執行：
+   RGB 影片下載到 `output/<group>/`。程式自動掃描角色目錄，沒有 `INPUT_JOBS` 名單需要編輯。
+
+3. 將選定的 RGB 影片放進 `src/3_remove_background/input/<group>/`，執行：
 
    ```powershell
-   python src/3_virtual_camera/main.py
+   python -B src/3_remove_background/main.py --check
+   python -B src/3_remove_background/main.py
    ```
 
-4. Stage 3 會在 `src/3_virtual_camera/output/<group>/brush_dataset/` 建立已驗證的 RGBA dataset。Stage 4 預設直接讀取該目錄：
+   相對位置相同的 `output/<group>/` 會產生 mask 影片。需要重做時加 `--force`；這會覆寫對應輸出。
+
+4. 在 `src/4_virtual_camera/input/<group>/` 放入選定 RGB 與 mask，使用不同檔名保存；再放入 Stage 1 的 `colmap/sparse/0/`。執行：
 
    ```powershell
-   python src/4_360brush/main.py
+   python -B src/4_virtual_camera/main.py
    ```
 
-成功時，Stage 4 會在 `src/4_360brush/output/<group>/` 產生 PLY 與 `brush.log`。外部 GPU、模型與服務相關的失敗不會被文件驗證取代，必須在目標環境實際測試。
+   只放需要配對的影片版本，避免多個 RGB 候選導致歧義。輸出是 `output/<group>/brush_dataset/` 與 ZIP；預設會取代既有 dataset。
+
+5. 把完整 `brush_dataset/` 複製到 `src/5_360brush/input/<group>/brush_dataset/`，確認 `config.py` 的 Brush 路徑後執行：
+
+   ```powershell
+   python -B src/5_360brush/main.py
+   ```
+
+   預設最終檔為 `src/5_360brush/output/<group>/<group>.ply`，同目錄保留 `brush.log`。`SKIP_COMPLETED=False`，重跑會再次訓練。
+
+### 用訓練相機渲染現有模型
+
+```powershell
+python -B tools/render_gaussian_reference.py src/5_360brush/output/4/4.ply src/5_360brush/output/4/source_camera_render --colmap src/5_360brush/input/4/brush_dataset/sparse/0 --width 1080 --height 1920 --fps 24 --supersample 2
+```
+
+`--preview` 僅輸出四個診斷視角。正式執行依 `images.txt` 的順序輸出所有影格，並產生 MP4、alpha PNG 與 `render_manifest.json`；manifest 記錄來源雜湊、相機與每幀統計。輸出寬高須保持原相機長寬比。`--frames` 會被實際 pose 數量覆蓋。腳本不會自動替換 README 的 GIF。
 
 ## 設定說明（Configuration）
 
-| Location | Setting | Effect |
+| 位置 | 目前值或項目 | 修改後的影響 |
 |---|---|---|
-| `src/1_360_skeleton/config.py` | 尺寸、FPS、175 幀、相機半徑/高度/目標、焦距、固定關節、DWPose 開關 | 控制骨架、相機與 Stage 1 輸出 |
-| `src/2_suround_video/config.py` | ComfyUI URL、`INPUT_JOBS`、workflow、timeout、output prefix | 控制提交的角色配對與 API 行為 |
-| `VideoSplat_2_api.json` | 模型、prompt、control、sampling、去背、追蹤與保存節點 | 控制實際生成與兩部影片輸出 |
-| `src/3_virtual_camera/config.py` | 影片 glob、175 幀、mask threshold/erosion、RGBA、ZIP、overwrite | 控制資料集建立與不可變 camera policy |
-| `src/4_360brush/config.py` | Stage 3 input、steps、splat cap、解析度、SH、seed、alpha、eval、export、批次策略 | 控制 Brush 訓練命令 |
-| `VIDEOSPLAT_BRUSH_EXE` | Brush executable path | 覆寫 PATH 自動尋找結果 |
-| `VIDEOSPLAT_BRUSH_INPUT_DIR` | Brush group input root | 覆寫預設的 Stage 3 output 位置 |
+| Stage 1 `config.py` | 720×1280、24 FPS、175 幀；相機半徑 4.8、高度 1.45、焦距 1850 px | 改變控制影片、相機內外參與投影 |
+| Stage 1 `config.py` | `USE_DWPOSE`、`POSE_MIN_CONFIDENCE`、前景門檻、`JOINTS`、`DEBUG_FRAMES` | 控制偵測、備援姿態與診斷圖；改幀數時要同步除錯影格索引 |
+| Stage 2 `config.py` | 兩個輸入固定檔名、ComfyUI URL、輪詢 2 秒、生成 timeout 6 小時 | 控制 discovery 與 API 等待；HTTP request timeout 為 30 秒 |
+| Stage 2 API JSON | prompt、模型、noise seed、0.7 倍且取 32 倍數的影像尺寸、影片長度運算 | 控制生成結果；目前 7.1 秒參數經 expression 對齊為 175 幀，並非直接讀 Stage 1 config |
+| Stage 3 `config.py` | 副檔名、上傳 chunk 1 MiB、上傳 timeout 30 分鐘、生成 timeout 6 小時 | 控制遞迴搜尋、串流上傳與服務等待 |
+| Stage 3 API JSON | BiRefNet、SAM3 detection threshold 0.5、max objects 4、24 FPS | 控制 mask 初始化、追蹤與保存 |
+| Stage 4 `config.py` | 5 個抽樣幀、64×64 分析、灰階比例 0.995、黑白比例 0.98 | 控制 mask 自動辨識，不會把匯出的 alpha 強制二值化 |
+| Stage 4 `config.py` | `EXPECTED_FRAMES=175`、`EXPORT_ZIP=True`、`OVERWRITE_OUTPUT=True` | 控制幀數契約、ZIP 與既有資料集取代行為 |
+| Stage 5 `config.py` | `BRUSH_EXE=BASE_DIR / "brush_app.exe"` | 指定真正啟動的訓練程式；不是由環境變數自動覆寫 |
+| Stage 5 `config.py` | 50,000 steps、10,000,000 splat cap、2048 最大解析度、SH 3、seed 42、alpha weight 0.1 | 組成 Brush 訓練命令；未指定的 optional 參數為 `None`，不傳給 CLI |
+| Stage 5 `config.py` | `DRY_RUN`、`SKIP_COMPLETED`、`CONTINUE_ON_ERROR`、`EXTRA_ARGS`、`EXTRA_ENV` | 控制僅列命令、略過、批次失敗處理、額外 flags 與 subprocess 環境 |
+| 渲染器 CLI | `--colmap`、尺寸、FPS、超採樣 | 指定原始相機與輸出規格；背景目前寫在程式中，為淺灰色 |
 
-不要把 `REUSE_ORIGINAL_CAMERA_POSES` 改為 false，或啟用 camera estimation/optimization/feature matching；Stage 3 會將這些視為違反 V2 實驗不變條件並停止。
+Stage 4 強制 `REUSE_ORIGINAL_CAMERA_POSES=True`、`COMPOSE_RGBA_IMAGES=True`；`ESTIMATE_CAMERAS`、`OPTIMIZE_CAMERAS`、`MATCH_FEATURES`、`EXPORT_SEPARATE_MASKS` 必須是 `False`。違反時 `require_invariants()` 會停止執行。
+
+`BRUSH_ALPHA_MODE="transparent"` 只用於 Stage 4 印出的建議命令。Stage 5 目前 `ALPHA_MODE=None`，實際命令沒有 `--alpha-mode`。Stage 5 的 `NO_TIMEOUT` 設定沒有被 main 讀取，訓練函式本身就未設定 timeout。
 
 ## 開發者指南（Developer Guide）
 
-建議閱讀順序是 `src/1_360_skeleton/config.py` → `main.py` → `dwpose_backend.py`，接著閱讀 Stage 2 config/main/API workflow，再閱讀 Stage 3 的 dataclass、COLMAP parser、frame extraction、RGBA composition 和 validation，最後閱讀 Stage 4 command builder。
+1. 先讀五個 `config.py`，再讀各自 `main()` 與 discovery 函式，確認輸入目錄深度、命名與略過條件。
+2. 讀 Stage 1 的 `camera_for_frame`、`write_colmap_model` 和 Stage 4 的 COLMAP parser，理解逐幀對應規則。
+3. 讀 Stage 2、3 的 API workflow 及 `prepare_workflow`；UI JSON 用於 ComfyUI 編輯，Python 實際提交 `*_api.json`。兩者不會自動同步。
+4. 讀 Stage 4 的 `detect_video_pair`、`write_rgba_images`、`validate_dataset`，再讀 Stage 5 `build_command`，追蹤 alpha 到訓練的交接。
+5. 修改渲染時讀 `read_colmap_cameras`、`load_gaussians`、`render`、`rasterize`，以相同原始鏡頭比較修改前後結果。
 
-修改時注意以下資料契約：Stage 1 的 frame count、影像名稱、相機內參與 `images.txt` 順序必須與 Stage 2/3 一致；Stage 2 若新增或調整 `SaveVideo`，必須同步 Stage 3 的 mask/RGB glob；更改 COLMAP image name 時不得在 Stage 3 重新命名而破壞 registered name；更改 Brush flags 時要同步 `REQUIRED_FLAGS` 與版本偵測。
+世界座標使用 `+Y` 向上、`+Z` 為角色正面；COLMAP 外參是 world-to-camera，四元數順序為 `qw,qx,qy,qz`，相機中心為 `C = -Rᵀt`。Stage 1 的第一幀與最後一幀分別對應 0°、360°，因此同為正面。
 
-擴充功能時優先新增明確的設定與驗證，不要隱式搜尋任意輸入。若要建立自動 handoff，應保留現有每階段可獨立執行及可檢查中間檔案的特性。第三方 DWPose runtime 位於 `third_party/`，其授權文件與專案自身授權應分開處理。
+擴充時沿現有邊界新增設定、驗證與對應輸出。改變幀數必須同步 Stage 1、生成 workflow 長度與 Stage 4 契約；改變檔名必須維持 COLMAP 註冊名稱；改 Brush flags 時要同步 `REQUIRED_FLAGS` 與 steps 偵測。新增跨階段自動搬移功能時，應明確處理重跑與多版本配對。
+
+目前沒有測試目錄或 CI。以下命令可在不啟動模型及服務的情況下檢查自有 Python 與 workflow 語法：
+
+```powershell
+python -B -c "import ast,pathlib; files=list(pathlib.Path('src').glob('*/*.py'))+list(pathlib.Path('tools').glob('*.py')); [ast.parse(p.read_text(encoding='utf-8-sig')) for p in files]; print('Python syntax OK')"
+python -B -c "import json,pathlib; files=list(pathlib.Path('src').glob('*/workflows/*.json')); [json.loads(p.read_text(encoding='utf-8-sig')) for p in files]; print('Workflow JSON OK')"
+```
+
+以上只確認語法。完整驗證仍需在模型、ComfyUI、FFmpeg 與 Brush 都備妥的環境完成。
 
 ## 已知限制與待辦事項（Limitations & TODO）
 
-- V2 只有 `tests/test_rgba_handoff.py` 涵蓋 RGBA composition 與 Stage 3 → 4；其餘流程仍缺少自動化與端到端測試。
-- V2 沒有 Viewer；V1 Viewer 只存在於 `v1.0.0`。
-- Stage 1 → 2 與 Stage 2 → 3 仍需手動準備資料，且 Stage 2 的 `INPUT_JOBS` 需要手動編輯；Stage 3 → 4 已直接串接。
-- Stage 3 固定要求 175 幀，不支援不同長度或 pose 重採樣。
-- Stage 3 會輸出 RGBA 與獨立 mask；此轉換已具備離線測試，但仍需在實際 ComfyUI 輸出與 Brush 環境完成端到端驗證。
-- DWPose、ComfyUI 與 Brush 依賴外部模型或執行檔，尚無單一可重現環境 lockfile。
-- `points3D.txt` 可為空；Brush 會使用 random initialization。
-- 專案根目錄尚無 LICENSE；只有 vendored 第三方程式附帶其自身授權。
-- 專案自有 Python/JSON 中沒有 `TODO`、`FIXME`、`XXX` 或 `NotImplemented` 標記；未完成範圍以上述可驗證限制為準。
+### 已確認的限制
+
+| 範圍 | 目前狀態 |
+|---|---|
+| 幾何與相機 | 只沿用既有姿態，不做相機估計、最佳化或稀疏特徵重建；Stage 1 的 `points3D.txt` 沒有 3D points |
+| 生成一致性 | prompt 與骨架是控制條件，程式沒有驗證角色外觀、姿態與實際視角是否精確遵守 |
+| 尺寸契約 | 目前訓練 RGBA 為 512×896，COLMAP 宣告為 720×1280；Stage 4 不檢查兩者尺寸一致，也不重算內參。影響與修正需另行驗證 |
+| mask | 以抽樣灰階／黑白比例判別，歧義即停止；輸出 alpha 保留灰階，僅驗證非定值，未檢查每張語意遮罩是否正確 |
+| 增量重跑 | Stage 2 有輸入／workflow 簽章；Stage 3 只有同名輸出判斷；Stage 5 預設重新訓練 |
+| 驗證強度 | Stage 5 只抽查 PNG header；沒有專案測試套件、CI、端到端自動回歸或統一依賴 lockfile |
+| 預覽 | 參考渲染器只接受 `SIMPLE_PINHOLE`／`PINHOLE` 與 SH 0–3；不能補回 PLY 缺失細節，漂浮高斯與模糊邊緣仍會顯示 |
+| 樣本資料 | `test_file/suround/4/` 的影片各為 192 幀，不能直接通過目前 175 幀契約；資料夾名稱不是規格保證 |
+| 部署與授權 | 最低硬體、完整套件相容矩陣、custom node 固定版本與專案根目錄授權尚未定義 |
+
+### 可追溯的待辦範圍
+
+自有 Python 與 workflow JSON 中未發現 `TODO`、`FIXME`、`XXX` 或 `NotImplemented` 標記。從上述缺口可明確列出的後續工程工作為：
+
+1. 驗證影像尺寸與相機內參的交接，建立可重現的投影對照。
+2. 為 175 幀、mask 配對、RGBA、原始 pose 與輸出 PLY 建立離線回歸檢查。
+3. 統一各階段的重跑判斷與檔案搬移策略。
+4. 固定外部模型、節點、套件及 Brush build 的相容組合。
+5. 更新仍描述四階段流程的版本文件，並明確訂定專案授權。
+
+上述為依程式現況整理的待辦，沒有在本次文件改寫中實作。
 
 ## 補充說明（Notes）
 
-`3_virtual_camera` 是既有 V2 目錄名稱。實作會複製並驗證 Stage 1 COLMAP text model，不會呼叫 COLMAP mapper、估計新姿態或產生虛構 3D points。
+`3_remove_background` 的主要產物是 mask 影片，透明 RGBA 是到 Stage 4 才建立。`4_virtual_camera` 的名稱保留自程式目錄；它複製原始相機，不產生新的攝影機軌跡。
 
-V2 來源資料夾中的 `.pose_env`、ONNX 模型、輸入圖片、生成影片、ZIP、PLY、log 與 Brush target 都是本機 runtime 資料，未加入 Repository。唯一納入的 V2 Demo 是 Stage 1 `default` 骨架輸出的縮小 GIF、PNG 與 MP4。V1 的程式與根 README 可透過 `v1.0.0` 取得，main 分支中的 V1 快照位於 `docs/versions/`。
+Stage 1 會額外輸出 `rigs.txt`、`frames.txt`。Stage 4 只複製 `cameras.txt`、`images.txt`、`points3D.txt`，且要求輸出 `sparse/0/` 的檔案集合恰為這三個檔案；不要把另外兩個檔案放回生成的 dataset。
+
+`.gitignore` 排除 runtime input/output、模型、執行檔、訓練產物與快取；所以工作區裡現有的 ONNX、Brush EXE、PLY 不代表乾淨 checkout 也具備。文件展示的 MP4 有獨立例外規則，GIF 則未被該媒體忽略規則排除。
+
+`docs/versions/` 與 `CHANGELOG.md` 保留歷史敘述，不可用其中舊的 Stage 編號取代現行 `src/` 路徑。專案根目錄沒有 LICENSE；vendored 程式各自附帶授權文件，不等於整個專案已採相同授權。

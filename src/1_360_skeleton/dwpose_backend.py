@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 import os
+import hashlib
+import importlib
 import sys
+import time
+import types
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import cv2
@@ -15,10 +21,101 @@ MODEL_DIR = ROOT / "models" / "yzd-v" / "DWPose"
 DET_MODEL = MODEL_DIR / "yolox_l.onnx"
 POSE_MODEL = MODEL_DIR / "dw-ll_ucoco_384.onnx"
 
+MODEL_SPECS = {
+    DET_MODEL: {
+        "url": "https://huggingface.co/yzd-v/DWPose/resolve/main/yolox_l.onnx",
+        "size": 216_746_733,
+        "sha256": "7860ae79de6c89a3c1eb72ae9a2756c0ccfbe04b7791bb5880afabd97855a411",
+    },
+    POSE_MODEL: {
+        "url": "https://huggingface.co/yzd-v/DWPose/resolve/main/dw-ll_ucoco_384.onnx",
+        "size": 134_399_116,
+        "sha256": "724f4ff2439ed61afb86fb8a1951ec39c6220682803b4a8bd4f598cd913b1843",
+    },
+}
+
 # CPU OpenCV DNN 在這兩張圖只需約 0.25 秒，且不依賴特定 CUDA/cuDNN 版本。
 os.environ.setdefault("AUX_ORT_PROVIDERS", "CPUExecutionProvider")
 if str(VENDOR_SRC) not in sys.path:
     sys.path.insert(0, str(VENDOR_SRC))
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _valid_model(path: Path, spec: dict) -> bool:
+    if not path.is_file() or path.stat().st_size != spec["size"]:
+        return False
+    return _sha256(path) == spec["sha256"]
+
+
+def _download_once(path: Path, spec: dict) -> None:
+    """下載到 .part；伺服器支援 Range 時會從中斷位置續傳。"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    part = path.with_name(path.name + ".part")
+    downloaded = part.stat().st_size if part.is_file() else 0
+    if downloaded > spec["size"]:
+        part.unlink()
+        downloaded = 0
+
+    headers = {"User-Agent": "VideoSplat-DWPose/1.0"}
+    if downloaded:
+        headers["Range"] = f"bytes={downloaded}-"
+    request = urllib.request.Request(spec["url"], headers=headers)
+
+    with urllib.request.urlopen(request, timeout=60) as response:
+        append = downloaded > 0 and response.status == 206
+        if not append:
+            downloaded = 0
+        mode = "ab" if append else "wb"
+        last_report = -1
+        with part.open(mode) as stream:
+            while True:
+                chunk = response.read(4 * 1024 * 1024)
+                if not chunk:
+                    break
+                stream.write(chunk)
+                downloaded += len(chunk)
+                percent = min(100, int(downloaded * 100 / spec["size"]))
+                if percent // 5 != last_report:
+                    last_report = percent // 5
+                    print(f"  {path.name}: {percent}% ({downloaded / 1024 / 1024:.1f} MB)", flush=True)
+
+    if part.stat().st_size != spec["size"]:
+        raise RuntimeError(
+            f"{path.name} 大小不正確：{part.stat().st_size}，預期 {spec['size']} bytes")
+    if _sha256(part) != spec["sha256"]:
+        raise RuntimeError(f"{path.name} SHA-256 驗證失敗；保留 .part 供下次重新下載")
+    os.replace(part, path)
+
+
+def ensure_models() -> None:
+    """缺少或損壞時自動下載模型；失敗會重試並保留續傳檔。"""
+    for path, spec in MODEL_SPECS.items():
+        if _valid_model(path, spec):
+            continue
+        print(f"[DWPose] 缺少或模型不完整，開始下載 {path.name}")
+        last_error = None
+        for attempt in range(1, 4):
+            try:
+                _download_once(path, spec)
+                print(f"[DWPose] {path.name} 下載與驗證完成")
+                break
+            except (OSError, RuntimeError, urllib.error.URLError) as error:
+                last_error = error
+                if attempt < 3:
+                    wait_seconds = attempt * 2
+                    print(f"[DWPose] 第 {attempt} 次下載失敗：{error}；{wait_seconds} 秒後續傳")
+                    time.sleep(wait_seconds)
+        else:
+            raise RuntimeError(
+                f"無法下載 DWPose 模型 {path.name}。請檢查網路後重新執行；"
+                f"已下載部分會自動續傳。最後錯誤：{last_error}")
 
 
 class DWPoseEstimator:
@@ -32,11 +129,17 @@ class DWPoseEstimator:
     )
 
     def __init__(self) -> None:
-        missing = [path for path in (DET_MODEL, POSE_MODEL) if not path.is_file()]
-        if missing:
-            raise FileNotFoundError("缺少 DWPose 模型：" + ", ".join(str(path) for path in missing))
+        ensure_models()
 
-        from custom_controlnet_aux.dwpose.wholebody import Wholebody
+        # 避免執行第三方 dwpose/__init__.py；該檔會載入 ONNX 路徑用不到的
+        # torchvision 訓練元件。建立輕量 package 後只載入 Wholebody 推論器。
+        package_name = "custom_controlnet_aux.dwpose"
+        if package_name not in sys.modules:
+            package = types.ModuleType(package_name)
+            package.__path__ = [str(VENDOR_SRC / "custom_controlnet_aux" / "dwpose")]
+            package.__package__ = package_name
+            sys.modules[package_name] = package
+        Wholebody = importlib.import_module(f"{package_name}.wholebody").Wholebody
 
         self.model = Wholebody(str(DET_MODEL), str(POSE_MODEL), torchscript_device="cpu")
 

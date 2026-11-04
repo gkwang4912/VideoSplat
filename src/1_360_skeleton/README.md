@@ -10,7 +10,7 @@ src/1_360_skeleton/
 ├─ main.py         # 生成影片、逐幀 PNG、COLMAP 相機資料
 ├─ dwpose_backend.py
 ├─ .pose_env/      # 可選的本機 Python 3.10 環境，不納入 Git
-├─ models/         # 本機 DWPose ONNX 模型，不納入 Git
+├─ models/         # 首次執行時自動下載的 DWPose ONNX 模型，不納入 Git
 ├─ third_party/    # DWPose 推論程式
 ├─ README.md
 ├─ input/          # 一張圖視為一位人物；可放 PNG/JPG/WEBP/BMP
@@ -22,7 +22,7 @@ src/1_360_skeleton/
 
 ## 執行
 
-需求：Python 3.10、專案 requirements、FFmpeg，以及放在 `models/yzd-v/DWPose/` 的兩個 DWPose ONNX 模型。若本機自行建立 `.pose_env/python.exe`，程式會自動切換到該環境；Git 版本不包含虛擬環境或模型權重。
+需求：Python 3.10、專案 requirements 與 FFmpeg。首次使用 DWPose 時，程式會從 Hugging Face 自動下載約 351 MB 的兩個 ONNX 模型到 `models/yzd-v/DWPose/`。下載支援中斷續傳，並會驗證檔案大小與 SHA-256；後續執行不會重複下載。若本機自行建立 `.pose_env/python.exe`，程式會自動切換到該環境；Git 版本不包含虛擬環境或模型權重。
 
 ```powershell
 python -m pip install -r requirements.txt

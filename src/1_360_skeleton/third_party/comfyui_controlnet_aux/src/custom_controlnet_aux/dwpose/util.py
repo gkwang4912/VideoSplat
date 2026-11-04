@@ -5,7 +5,8 @@ import cv2
 import os
 from typing import List, Tuple, Union, Optional
 
-from .body import BodyResult, Keypoint
+# ONNX 推論只需要資料型別；從 body 匯入會連帶強制載入 torchvision。
+from .types import BodyResult, Keypoint
 
 eps = 0.01
 
